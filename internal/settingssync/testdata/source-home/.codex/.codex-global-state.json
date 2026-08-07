@@ -1,0 +1,9 @@
+{
+  "browser-use-bundled-plugin-auto-install-disabled": false,
+  "computer-use-bundled-plugin-auto-install-disabled": true,
+  "auth": "DECOY_AUTH_GLOBAL_VALUE",
+  "session": {"token": "DECOY_SESSION_VALUE"},
+  "prompt-history": ["DECOY_HISTORY_VALUE"],
+  "installation_id": "DECOY_INSTALLATION_ID_VALUE",
+  "thread-project-assignments": {"thread": "DECOY_THREAD_VALUE"}
+}

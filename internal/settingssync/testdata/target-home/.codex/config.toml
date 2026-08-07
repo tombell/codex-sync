@@ -1,0 +1,17 @@
+personality = "friendly"
+model = "target-model-must-stay"
+auth_token = "TARGET_AUTH_MUST_STAY"
+
+[desktop]
+composerEnterBehavior = "enter"
+preventSleepWhileRunning = false
+followUpQueueMode = "steer"
+notifications-turn-mode = "off"
+ambient-suggestions-enabled = false
+appearanceTheme = "light"
+sansFontSize = 12
+usePointerCursors = false
+futureTargetPreference = "TARGET_UNKNOWN_MUST_STAY"
+
+[unrelated]
+history = "TARGET_HISTORY_MUST_STAY"

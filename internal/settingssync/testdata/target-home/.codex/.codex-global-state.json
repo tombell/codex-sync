@@ -1,0 +1,7 @@
+{
+  "browser-use-bundled-plugin-auto-install-disabled": true,
+  "computer-use-bundled-plugin-auto-install-disabled": false,
+  "auth": "TARGET_AUTH_GLOBAL_MUST_STAY",
+  "session": {"token": "TARGET_SESSION_MUST_STAY"},
+  "machine-local-id": "TARGET_DEVICE_ID_MUST_STAY"
+}

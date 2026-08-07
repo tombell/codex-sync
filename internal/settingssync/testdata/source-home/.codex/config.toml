@@ -1,0 +1,49 @@
+personality = "pragmatic"
+model = "fixture-model-must-not-sync"
+auth_token = "DECOY_AUTH_CONFIG_VALUE"
+
+[projects."/fixture/private-project"]
+trust_level = "trusted"
+
+[desktop]
+composerEnterBehavior = "cmdIfMultiline"
+preventSleepWhileRunning = true
+followUpQueueMode = "queue"
+notifications-turn-mode = "always"
+notifications-permissions-enabled = true
+notifications-questions-enabled = false
+ambient-suggestions-enabled = true
+appearanceTheme = "dark"
+appearanceLightCodeThemeId = "fixture-light"
+appearanceDarkCodeThemeId = "fixture-dark"
+sansFontSize = 15
+codeFontSize = 13
+usePointerCursors = true
+show-context-window-usage = true
+computerUseAlwaysHidePictureInPicture = true
+open-link-in-target-preference = "in-app-browser"
+open-local-url-in-target-preference = "external-browser"
+git-commit-instructions = "DECOY_GIT_INSTRUCTION_VALUE"
+futurePreference = "DECOY_UNKNOWN_SETTING_VALUE"
+
+[desktop.appearanceLightChromeTheme]
+accent = "#112233"
+contrast = 55
+ink = "#223344"
+opaqueWindows = false
+surface = "#f0f0f0"
+
+[desktop.appearanceLightChromeTheme.fonts]
+code = "Fixture Mono"
+ui = "Fixture Sans"
+
+[desktop.appearanceLightChromeTheme.semanticColors]
+diffAdded = "#00aa00"
+diffRemoved = "#aa0000"
+skill = "#0000aa"
+
+[desktop.open-in-target-preferences]
+global = "in-app-browser"
+
+[history]
+last_prompt = "DECOY_PROMPT_HISTORY_VALUE"

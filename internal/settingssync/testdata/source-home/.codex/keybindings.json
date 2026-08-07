@@ -1,0 +1,10 @@
+[
+  {
+    "command": "toggleSidebar",
+    "key": "Command+Shift+B"
+  },
+  {
+    "command": "newTask",
+    "key": "Command+N"
+  }
+]
