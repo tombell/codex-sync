@@ -120,7 +120,7 @@ func atomicWrite(path string, data []byte, reference string) error {
 			return err
 		}
 	}
-	temporary, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".chatgpt-settings-sync.*")
+	temporary, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".codex-sync.*")
 	if err != nil {
 		return err
 	}

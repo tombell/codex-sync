@@ -32,7 +32,7 @@ func (l Layout) GlobalState() string {
 }
 func (l Layout) Keybindings() string { return filepath.Join(l.Home, ".codex", "keybindings.json") }
 func (l Layout) Backups() string {
-	return filepath.Join(l.Home, ".local", "state", "chatgpt-settings-sync", "backups")
+	return filepath.Join(l.Home, ".local", "state", "codex-sync", "backups")
 }
 
 type AppInfo struct {

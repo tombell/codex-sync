@@ -95,7 +95,7 @@ func validateBundle(bundle Bundle, target AppInfo) (Content, error) {
 		return Content{}, fmt.Errorf("unsupported export schema version")
 	}
 	if manifest.ToolVersion != ToolVersion {
-		return Content{}, fmt.Errorf("tool version mismatch; update chatgpt-settings-sync on both Macs")
+		return Content{}, fmt.Errorf("tool version mismatch; update codex-sync on both Macs")
 	}
 	if manifest.SourceRole != CanonicalHost {
 		return Content{}, fmt.Errorf("bundle was not exported as the canonical Pyra source")

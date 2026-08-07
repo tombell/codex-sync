@@ -1,12 +1,12 @@
-# ChatGPT settings sync
+# Codex sync
 
-`chatgpt-settings-sync` is a manual, pull-only macOS tool for copying a strict allowlist of ChatGPT/Codex desktop preferences from Pyra to another Mac. It never pushes target state back to Pyra.
+`codex-sync` is a manual, pull-only macOS tool for copying a strict allowlist of ChatGPT/Codex desktop preferences from Pyra to another Mac. It never pushes target state back to Pyra.
 
 The implementation is a dependency-free Go command. It does not require Python or modify a complete mixed-purpose state store.
 
 ## Architecture and safety model
 
-Pyra is the canonical source. A target asks Pyra over SSH to run `chatgpt-settings-sync export`; the sanitized JSON bundle is streamed into a private temporary staging directory on the target. A single bounded stream avoids creating remote temporary data, so `rsync` is unnecessary for the small bundle.
+Pyra is the canonical source. A target asks Pyra over SSH to run `codex-sync export`; the sanitized JSON bundle is streamed into a private temporary staging directory on the target. A single bounded stream avoids creating remote temporary data, so `rsync` is unnecessary for the small bundle.
 
 Before a normal pull, the target:
 
@@ -59,7 +59,7 @@ make install
 This writes the binary to the fixed path used by remote pulls:
 
 ```text
-/Users/tombell/.local/bin/chatgpt-settings-sync
+/Users/tombell/.local/bin/codex-sync
 ```
 
 ## First pull
@@ -67,13 +67,13 @@ This writes the binary to the fixed path used by remote pulls:
 Run a dry run on a target while ChatGPT is open or closed:
 
 ```sh
-chatgpt-settings-sync pull pyra --dry-run
+codex-sync pull pyra --dry-run
 ```
 
 For a normal pull, quit ChatGPT manually first:
 
 ```sh
-chatgpt-settings-sync pull pyra
+codex-sync pull pyra
 ```
 
 The tool never quits or restarts ChatGPT. It refuses a live apply.
@@ -81,7 +81,7 @@ The tool never quits or restarts ChatGPT. It refuses a live apply.
 Compare without applying:
 
 ```sh
-chatgpt-settings-sync status pyra
+codex-sync status pyra
 ```
 
 `status` exits `0` when settings match and `1` when changes are available.
@@ -90,7 +90,7 @@ On Pyra, generate a sanitized export:
 
 ```sh
 umask 077
-chatgpt-settings-sync export > /tmp/chatgpt-settings.json
+codex-sync export > /tmp/codex-settings.json
 ```
 
 Exports contain allowed preference values. Treat them as private even though they contain no authentication, session, or history state.
@@ -100,7 +100,7 @@ Exports contain allowed preference values. Treat them as private even though the
 Audit prints allowlisted paths, presence, and hashes without values:
 
 ```sh
-chatgpt-settings-sync audit
+codex-sync audit
 ```
 
 Unknown desktop setting paths or shortcut command IDs are reported and never exported. `audit` exits `2` when it finds any.
@@ -108,13 +108,13 @@ Unknown desktop setting paths or shortcut command IDs are reported and never exp
 Completed pulls store private backups below:
 
 ```text
-~/.local/state/chatgpt-settings-sync/backups/
+~/.local/state/codex-sync/backups/
 ```
 
 Backups are local recovery data and contain complete pre-change copies of the three touched local files. Quit ChatGPT and restore the newest completed, not-yet-rolled-back backup with:
 
 ```sh
-chatgpt-settings-sync rollback
+codex-sync rollback
 ```
 
 ## Adding a preference safely
@@ -125,7 +125,7 @@ chatgpt-settings-sync rollback
 4. Add intentionally machine-local or out-of-scope desktop keys to `knownExcludedDesktopPaths`.
 5. Extend fixtures with the allowed value and sensitive decoys.
 6. Verify export filtering, unknown-key rejection, dry-run, backup, interruption recovery, rollback, and local round-trip behavior.
-7. Run `chatgpt-settings-sync audit` on Pyra before installing on targets.
+7. Run `codex-sync audit` on Pyra before installing on targets.
 
 Never broaden an allowlist based only on a suggestive key name.
 
@@ -136,7 +136,7 @@ Never broaden an allowlist based only on a suggestive key name.
 Check the alias and fixed remote command:
 
 ```sh
-ssh -T pyra /Users/tombell/.local/bin/chatgpt-settings-sync audit
+ssh -T pyra /Users/tombell/.local/bin/codex-sync audit
 ```
 
 Pulls use `BatchMode=yes` and will not wait for a password or host-key prompt. Resolve those interactively before retrying.

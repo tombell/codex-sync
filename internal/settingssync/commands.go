@@ -36,7 +36,7 @@ func NewRunner(layout Layout, stdout, stderr io.Writer) Runner {
 func (runner Runner) Run(args []string) int {
 	unlock, err := operationLock()
 	if err != nil {
-		fmt.Fprintf(runner.Stderr, "chatgpt-settings-sync: %v\n", err)
+		fmt.Fprintf(runner.Stderr, "codex-sync: %v\n", err)
 		return 1
 	}
 	defer unlock()
@@ -53,7 +53,7 @@ func (runner Runner) Run(args []string) int {
 	switch args[0] {
 	case "export":
 		if len(args) != 1 {
-			runErr = fmt.Errorf("usage: chatgpt-settings-sync export")
+			runErr = fmt.Errorf("usage: codex-sync export")
 			break
 		}
 		if runner.Hostname() != CanonicalHost {
@@ -78,19 +78,19 @@ func (runner Runner) Run(args []string) int {
 		code, runErr = runner.runPull(host, dryRun)
 	case "status":
 		if len(args) != 2 {
-			runErr = fmt.Errorf("usage: chatgpt-settings-sync status pyra")
+			runErr = fmt.Errorf("usage: codex-sync status pyra")
 			break
 		}
 		code, runErr = runner.runStatus(args[1])
 	case "audit":
 		if len(args) != 1 {
-			runErr = fmt.Errorf("usage: chatgpt-settings-sync audit")
+			runErr = fmt.Errorf("usage: codex-sync audit")
 			break
 		}
 		code, runErr = runner.runAudit()
 	case "rollback":
 		if len(args) != 1 {
-			runErr = fmt.Errorf("usage: chatgpt-settings-sync rollback")
+			runErr = fmt.Errorf("usage: codex-sync rollback")
 			break
 		}
 		if runner.AppRunning() {
@@ -106,7 +106,7 @@ func (runner Runner) Run(args []string) int {
 		runErr = fmt.Errorf("unknown command %q", args[0])
 	}
 	if runErr != nil {
-		fmt.Fprintf(runner.Stderr, "chatgpt-settings-sync: %v\n", runErr)
+		fmt.Fprintf(runner.Stderr, "codex-sync: %v\n", runErr)
 		return 1
 	}
 	return code
@@ -121,13 +121,13 @@ func parsePullArgs(args []string) (string, bool, error) {
 			dryRun = true
 		default:
 			if strings.HasPrefix(argument, "-") || host != "" {
-				return "", false, fmt.Errorf("usage: chatgpt-settings-sync pull pyra [--dry-run]")
+				return "", false, fmt.Errorf("usage: codex-sync pull pyra [--dry-run]")
 			}
 			host = argument
 		}
 	}
 	if host == "" {
-		return "", false, fmt.Errorf("usage: chatgpt-settings-sync pull pyra [--dry-run]")
+		return "", false, fmt.Errorf("usage: codex-sync pull pyra [--dry-run]")
 	}
 	return host, dryRun, nil
 }
@@ -171,7 +171,7 @@ func (runner Runner) runPull(host string, dryRun bool) (int, error) {
 		return 1, err
 	}
 	fmt.Fprintf(runner.Stdout, "Applied settings atomically. Backup: %s\n", backup)
-	fmt.Fprintln(runner.Stdout, "Rollback with: chatgpt-settings-sync rollback")
+	fmt.Fprintln(runner.Stdout, "Rollback with: codex-sync rollback")
 	return 0, nil
 }
 
@@ -274,7 +274,7 @@ func fetchBundle(host string) (Bundle, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, "/Users/tombell/.local/bin/chatgpt-settings-sync", "export")
+	command := exec.CommandContext(ctx, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, "/Users/tombell/.local/bin/codex-sync", "export")
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		return Bundle{}, fmt.Errorf("prepare SSH to Pyra: %w", err)
@@ -300,7 +300,7 @@ func fetchBundle(host string) (Bundle, error) {
 		return Bundle{}, fmt.Errorf("Pyra export failed over SSH")
 	}
 
-	staging, err := os.MkdirTemp("", "chatgpt-settings-sync.pull.*")
+	staging, err := os.MkdirTemp("", "codex-sync.pull.*")
 	if err != nil {
 		return Bundle{}, err
 	}
@@ -342,14 +342,14 @@ func localHostname() string {
 }
 
 func operationLock() (func(), error) {
-	path := filepath.Join(os.TempDir(), fmt.Sprintf("chatgpt-settings-sync-%d.lock", os.Getuid()))
+	path := filepath.Join(os.TempDir(), fmt.Sprintf("codex-sync-%d.lock", os.Getuid()))
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, err
 	}
 	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		file.Close()
-		return nil, fmt.Errorf("another chatgpt-settings-sync operation is running")
+		return nil, fmt.Errorf("another codex-sync operation is running")
 	}
 	return func() {
 		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
@@ -359,9 +359,9 @@ func operationLock() (func(), error) {
 
 func printUsage(writer io.Writer) {
 	fmt.Fprintln(writer, `Usage:
-  chatgpt-settings-sync export
-  chatgpt-settings-sync pull pyra [--dry-run]
-  chatgpt-settings-sync status pyra
-  chatgpt-settings-sync audit
-  chatgpt-settings-sync rollback`)
+  codex-sync export
+  codex-sync pull pyra [--dry-run]
+  codex-sync status pyra
+  codex-sync audit
+  codex-sync rollback`)
 }
