@@ -91,34 +91,55 @@ func TestNewRunnerUsesEnvironmentSSHUser(t *testing.T) {
 	}
 }
 
-func TestLayoutCodexHomeOverridePreservesBackupRoot(t *testing.T) {
-	layout := Layout{Home: "/Users/alice", CodexPath: "/Volumes/settings/codex"}
+func TestLayoutRootOverridesRemainIndependent(t *testing.T) {
+	layout := Layout{Home: "/Users/alice", CodexPath: "/Volumes/settings/codex", StatePath: "/Volumes/state"}
 	if got, want := layout.Config(), "/Volumes/settings/codex/config.toml"; got != want {
 		t.Fatalf("config path = %q, want %q", got, want)
 	}
-	if got, want := layout.Backups(), "/Users/alice/.local/state/codex-sync/backups"; got != want {
+	if got, want := layout.Backups(), "/Volumes/state/codex-sync/backups"; got != want {
 		t.Fatalf("backup path = %q, want %q", got, want)
 	}
 }
 
 func TestLiveLayoutUsesCodexHomeEnvironment(t *testing.T) {
 	t.Setenv("CODEX_HOME", "/Volumes/settings/codex")
-	layout, err := LiveLayout("")
+	layout, err := LiveLayout("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got, want := layout.CodexHome(), "/Volumes/settings/codex"; got != want {
 		t.Fatalf("Codex home = %q, want %q", got, want)
 	}
-	layout, err = LiveLayout("/Volumes/explicit/codex")
+	layout, err = LiveLayout("/Volumes/explicit/codex", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got, want := layout.CodexHome(), "/Volumes/explicit/codex"; got != want {
 		t.Fatalf("explicit Codex home = %q, want %q", got, want)
 	}
-	if _, err := LiveLayout("relative/codex"); err == nil || !strings.Contains(err.Error(), "absolute") {
+	if _, err := LiveLayout("relative/codex", ""); err == nil || !strings.Contains(err.Error(), "absolute") {
 		t.Fatalf("relative Codex home error = %v", err)
+	}
+}
+
+func TestLiveLayoutUsesStateHomeEnvironment(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "/Volumes/state")
+	layout, err := LiveLayout("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := layout.StateHome(), "/Volumes/state"; got != want {
+		t.Fatalf("state home = %q, want %q", got, want)
+	}
+	layout, err = LiveLayout("", "/Volumes/explicit/state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := layout.StateHome(), "/Volumes/explicit/state"; got != want {
+		t.Fatalf("explicit state home = %q, want %q", got, want)
+	}
+	if _, err := LiveLayout("", "relative/state"); err == nil || !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("relative state home error = %v", err)
 	}
 }
 

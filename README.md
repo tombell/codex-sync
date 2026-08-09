@@ -26,6 +26,8 @@ The application bundle defaults to `/Applications/ChatGPT.app`. Override it with
 
 Settings default to `~/.codex` on each Mac and honor that machine's `CODEX_HOME` when set. Use `--codex-home <absolute-path>` to override the local settings root. For a one-off remote override during pull or status, use `--source-codex-home <absolute-path>`.
 
+Backups default to `$XDG_STATE_HOME/codex-sync/backups/` when `XDG_STATE_HOME` is set, or `~/.local/state/codex-sync/backups/` otherwise. Use `--state-home <absolute-path>` to override the local state root.
+
 Check that the same version is installed on every Mac with `codex-sync --version`.
 
 ## Usage
@@ -55,6 +57,7 @@ codex-sync status source-mac --source-binary /opt/homebrew/bin/codex-sync \
 codex-sync status source-mac --ssh-connect-timeout 20s --export-timeout 2m
 codex-sync audit                             # exit 2 for unknown settings or commands
 codex-sync rollback                          # restore the latest completed backup
+codex-sync rollback --state-home /Volumes/settings/state
 ```
 
 `status` and dry runs are safe while Codex desktop is open. Pulls and rollbacks require it to be fully quit.
@@ -89,7 +92,7 @@ Before applying a pull, `codex-sync`:
 - requires matching tool and ChatGPT versions on both Macs;
 - prints a redacted diff;
 - rejects unknown exported settings and shortcut commands;
-- creates a backup under `~/.local/state/codex-sync/backups/`;
+- creates a backup under `$XDG_STATE_HOME/codex-sync/backups/` (default `~/.local/state/codex-sync/backups/`);
 - writes files atomically and restores the backup if the apply fails or is interrupted.
 
 It also prevents concurrent operations and limits SSH exports to 1 MiB. If the source cannot be reached, local settings are not changed.

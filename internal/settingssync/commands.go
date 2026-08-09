@@ -483,6 +483,7 @@ func printUsage(writer io.Writer) {
 Global options:
   --app-path <path>          Application bundle path; forwarded to sources.
   --codex-home <path>        Local Codex configuration root.
+  --state-home <path>        Local state root for backups and rollback.
   --source-codex-home <path> Source configuration root for pull/status.
   --source-binary <path>     Remote codex-sync executable for pull/status.
   --source-shell <path>      Remote login shell for pull/status.

@@ -16,12 +16,13 @@ import (
 type Layout struct {
 	Home      string
 	CodexPath string
+	StatePath string
 	AppPath   string
 }
 
 const defaultAppPath = "/Applications/ChatGPT.app"
 
-func LiveLayout(codexPath string) (Layout, error) {
+func LiveLayout(codexPath, statePath string) (Layout, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Layout{}, fmt.Errorf("find home directory: %w", err)
@@ -35,7 +36,16 @@ func LiveLayout(codexPath string) (Layout, error) {
 		}
 		codexPath = filepath.Clean(codexPath)
 	}
-	return Layout{Home: home, CodexPath: codexPath, AppPath: defaultAppPath}, nil
+	if statePath == "" {
+		statePath = os.Getenv("XDG_STATE_HOME")
+	}
+	if statePath != "" {
+		if !filepath.IsAbs(statePath) {
+			return Layout{}, fmt.Errorf("XDG_STATE_HOME must be an absolute path")
+		}
+		statePath = filepath.Clean(statePath)
+	}
+	return Layout{Home: home, CodexPath: codexPath, StatePath: statePath, AppPath: defaultAppPath}, nil
 }
 
 func (l Layout) Config() string { return filepath.Join(l.CodexHome(), "config.toml") }
@@ -56,8 +66,14 @@ func (l Layout) Rule(name string) string {
 func (l Layout) Profile(name string) string {
 	return filepath.Join(l.CodexHome(), name)
 }
+func (l Layout) StateHome() string {
+	if l.StatePath != "" {
+		return l.StatePath
+	}
+	return filepath.Join(l.Home, ".local", "state")
+}
 func (l Layout) Backups() string {
-	return filepath.Join(l.Home, ".local", "state", "codex-sync", "backups")
+	return filepath.Join(l.StateHome(), "codex-sync", "backups")
 }
 
 type AppInfo struct {

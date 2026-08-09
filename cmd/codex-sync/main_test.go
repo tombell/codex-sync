@@ -47,6 +47,7 @@ func TestParseGlobalArgsAcceptsSourceOverrides(t *testing.T) {
 	args := []string{
 		"pull", "source-mac",
 		"--codex-home", "/Users/local/.codex-beta",
+		"--state-home", "/Volumes/settings/state",
 		"--source-codex-home=/Users/remote/.codex-preview",
 		"--source-binary", "/opt/homebrew/bin/codex-sync",
 		"--source-shell=/bin/zsh",
@@ -62,6 +63,9 @@ func TestParseGlobalArgsAcceptsSourceOverrides(t *testing.T) {
 	}
 	if want := "/Users/local/.codex-beta"; options.CodexHome != want {
 		t.Fatalf("Codex home = %q, want %q", options.CodexHome, want)
+	}
+	if want := "/Volumes/settings/state"; options.StateHome != want {
+		t.Fatalf("state home = %q, want %q", options.StateHome, want)
 	}
 	if want := "/Users/remote/.codex-preview"; options.SourceCodexHome != want {
 		t.Fatalf("source Codex home = %q, want %q", options.SourceCodexHome, want)
@@ -86,6 +90,8 @@ func TestParseGlobalArgsRejectsInvalidPaths(t *testing.T) {
 		{"audit", "--app-path", "ChatGPT.app"},
 		{"audit", "--app-path=/Applications/ChatGPT.app", "--app-path", "/Applications/Other.app"},
 		{"audit", "--codex-home", ".codex-beta"},
+		{"audit", "--state-home", "state"},
+		{"rollback", "--state-home=/Volumes/state", "--state-home", "/Volumes/other-state"},
 		{"pull", "source-mac", "--source-codex-home"},
 		{"pull", "source-mac", "--source-binary", "bin/codex-sync"},
 		{"pull", "source-mac", "--source-shell"},

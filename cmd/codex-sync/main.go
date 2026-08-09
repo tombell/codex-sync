@@ -30,7 +30,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	layout, err := settingssync.LiveLayout(options.CodexHome)
+	layout, err := settingssync.LiveLayout(options.CodexHome, options.StateHome)
 	if err != nil {
 		fmt.Fprintf(stderr, "codex-sync: %v\n", err)
 		return 1
@@ -56,6 +56,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 type globalOptions struct {
 	AppPath           string
 	CodexHome         string
+	StateHome         string
 	SourceCodexHome   string
 	SourceBinary      string
 	SourceShell       string
@@ -76,6 +77,7 @@ func parseGlobalArgs(args []string) ([]string, globalOptions, error) {
 	}{
 		{"--app-path", &options.AppPath},
 		{"--codex-home", &options.CodexHome},
+		{"--state-home", &options.StateHome},
 		{"--source-codex-home", &options.SourceCodexHome},
 		{"--source-binary", &options.SourceBinary},
 		{"--source-shell", &options.SourceShell},
