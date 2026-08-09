@@ -96,7 +96,7 @@ Do not extend an allowlist based only on a plausible key name.
 ```sh
 go test ./...
 make                 # current platform
-make prod            # macOS and Linux binaries
+make prod            # macOS binaries
 ```
 
 Tests use fixtures and temporary directories; they do not touch live Codex settings.
