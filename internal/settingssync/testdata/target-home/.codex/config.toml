@@ -8,7 +8,9 @@ auth_token = "TARGET_AUTH_MUST_STAY"
 [desktop]
 composerEnterBehavior = "enter"
 preventSleepWhileRunning = false
+keepRemoteControlAwakeWhilePluggedIn = false
 followUpQueueMode = "steer"
+conversationDetailMode = "STEPS_PROSE"
 notifications-turn-mode = "off"
 ambient-suggestions-enabled = false
 appearanceTheme = "light"
@@ -19,6 +21,9 @@ git-pull-request-merge-method = "merge"
 git-show-sidebar-pr-icons = false
 git-commit-instructions = "TARGET_GIT_INSTRUCTIONS"
 futureTargetPreference = "TARGET_UNKNOWN_MUST_STAY"
+
+[desktop.open-in-target-preferences]
+global = "editor"
 
 [unrelated]
 history = "TARGET_HISTORY_MUST_STAY"

@@ -147,6 +147,14 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	if commitInstructions.Value != "Use fixture commit messages." {
 		t.Fatalf("unexpected git commit instructions: %#v", commitInstructions)
 	}
+	conversationDetail := bundle.Content.Preferences.ConfigToml["desktop.conversationDetailMode"]
+	if conversationDetail.Value != "STEPS_COMMANDS" {
+		t.Fatalf("unexpected conversation detail mode: %#v", conversationDetail)
+	}
+	openTarget := bundle.Content.Preferences.ConfigToml["desktop.open-in-target-preferences.global"]
+	if openTarget.Value != "fileManager" {
+		t.Fatalf("unexpected global open target: %#v", openTarget)
+	}
 }
 
 func TestBundleWithoutKeybindingsHasValidAuditSchema(t *testing.T) {

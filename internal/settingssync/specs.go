@@ -56,7 +56,9 @@ var (
 		stringSpec("personality", "friendly", "pragmatic", "none"),
 		stringSpec("desktop.composerEnterBehavior", "enter", "cmdIfMultiline", "cmdAlways"),
 		boolSpec("desktop.preventSleepWhileRunning"),
+		boolSpec("desktop.keepRemoteControlAwakeWhilePluggedIn"),
 		stringSpec("desktop.followUpQueueMode", "queue", "steer", "interrupt"),
+		stringSpec("desktop.conversationDetailMode", "STEPS_PROSE", "STEPS_COMMANDS", "STEPS_EXECUTION"),
 		boolSpec("desktop.mac-menu-bar-enabled"),
 		boolSpec("desktop.show-context-window-usage"),
 		stringSpec("desktop.notifications-turn-mode", "off", "unfocused", "always"),
@@ -100,6 +102,7 @@ var (
 		stringSpec("desktop.git-pull-request-merge-method", "merge", "squash"),
 		boolSpec("desktop.git-show-sidebar-pr-icons"),
 		patternSpec("desktop.git-commit-instructions", instructionPattern),
+		patternSpec("desktop.open-in-target-preferences.global", idPattern),
 	}
 
 	globalSpecs = []settingSpec{
@@ -108,15 +111,12 @@ var (
 	}
 
 	knownExcludedDesktopPaths = stringSet(
-		"desktop.keepRemoteControlAwakeWhilePluggedIn",
-		"desktop.conversationDetailMode",
 		"desktop.dictationDictionary",
 		"desktop.dock-icon-preference",
 		"desktop.avatar-overlay-mascot-width-px",
 		"desktop.enabled-reasoning-efforts",
 		"desktop.selected-avatar-id",
 		"desktop.browser-download-directory",
-		"desktop.open-in-target-preferences.global",
 	)
 
 	allowedCommandIDs = stringSet(

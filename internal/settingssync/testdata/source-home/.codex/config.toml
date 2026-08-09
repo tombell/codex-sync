@@ -11,7 +11,9 @@ trust_level = "trusted"
 [desktop]
 composerEnterBehavior = "cmdIfMultiline"
 preventSleepWhileRunning = true
+keepRemoteControlAwakeWhilePluggedIn = true
 followUpQueueMode = "queue"
+conversationDetailMode = "STEPS_COMMANDS"
 notifications-turn-mode = "always"
 notifications-permissions-enabled = true
 notifications-questions-enabled = false
@@ -49,7 +51,7 @@ diffRemoved = "#aa0000"
 skill = "#0000aa"
 
 [desktop.open-in-target-preferences]
-global = "in-app-browser"
+global = "fileManager"
 
 [history]
 last_prompt = "DECOY_PROMPT_HISTORY_VALUE"
