@@ -4,9 +4,9 @@ import "regexp"
 
 const (
 	ToolVersion         = "1.0.0"
-	BundleSchemaVersion = 2
+	BundleSchemaVersion = 3
 	ExpectedBundleID    = "com.openai.codex"
-	CanonicalHost       = "pyra"
+	BundleSourceRole    = "source"
 	MaxBundleBytes      = 1024 * 1024
 	MaxManagedFiles     = 64
 	MaxManagedFileBytes = 64 * 1024

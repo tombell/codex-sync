@@ -11,10 +11,10 @@ import (
 	"testing"
 )
 
-func TestSSHExportCommandUsesRemoteLoginPath(t *testing.T) {
-	command := sshExportCommand(context.Background(), "pyra")
+func TestSSHExportCommandUsesSelectedUserAndRemoteLoginPath(t *testing.T) {
+	command := sshExportCommand(context.Background(), "source-mac", "alice")
 	want := []string{
-		"ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "pyra",
+		"ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-l", "alice", "source-mac",
 		`exec "$SHELL" -lc 'exec codex-sync export'`,
 	}
 	if !reflect.DeepEqual(command.Args, want) {
@@ -22,6 +22,56 @@ func TestSSHExportCommandUsesRemoteLoginPath(t *testing.T) {
 	}
 	if strings.Contains(strings.Join(command.Args, " "), "/Users/") {
 		t.Fatalf("SSH command contains a hardcoded user path: %#v", command.Args)
+	}
+}
+
+func TestNewRunnerUsesEnvironmentSSHUser(t *testing.T) {
+	t.Setenv("USER", "alice")
+	var output bytes.Buffer
+	runner := NewRunner(Layout{}, &output, &output)
+	if runner.SSHUser != "alice" {
+		t.Fatalf("SSH user = %q, want %q", runner.SSHUser, "alice")
+	}
+}
+
+func TestParseRemoteArgsDefaultsToConfiguredUser(t *testing.T) {
+	target, dryRun, err := parseRemoteArgs([]string{"source-mac", "--dry-run"}, "alice", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (sshTarget{Host: "source-mac", User: "alice"}); target != want {
+		t.Fatalf("target = %#v, want %#v", target, want)
+	}
+	if !dryRun {
+		t.Fatal("dry run was not enabled")
+	}
+}
+
+func TestParseRemoteArgsAllowsUserOverride(t *testing.T) {
+	for _, args := range [][]string{
+		{"source-mac", "--user", "bob"},
+		{"--user=bob", "source-mac"},
+		{"-u", "bob", "source-mac"},
+	} {
+		target, dryRun, err := parseRemoteArgs(args, "alice", false)
+		if err != nil {
+			t.Fatalf("parseRemoteArgs(%q): %v", args, err)
+		}
+		if want := (sshTarget{Host: "source-mac", User: "bob"}); target != want {
+			t.Fatalf("parseRemoteArgs(%q) target = %#v, want %#v", args, target, want)
+		}
+		if dryRun {
+			t.Fatalf("parseRemoteArgs(%q) unexpectedly enabled dry run", args)
+		}
+	}
+}
+
+func TestParseRemoteArgsRejectsMissingUserAndEmbeddedUser(t *testing.T) {
+	if _, _, err := parseRemoteArgs([]string{"source-mac"}, "", false); err == nil || !strings.Contains(err.Error(), "set USER") {
+		t.Fatalf("missing user error = %v", err)
+	}
+	if _, _, err := parseRemoteArgs([]string{"alice@source-mac"}, "alice", false); err == nil || !strings.Contains(err.Error(), "--user") {
+		t.Fatalf("embedded user error = %v", err)
 	}
 }
 
@@ -226,9 +276,9 @@ func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr)
-	runner.Fetch = func(string) (Bundle, error) { return bundle, nil }
+	runner.Fetch = func(string, string) (Bundle, error) { return bundle, nil }
 	runner.AppRunning = func() bool { return true }
-	if code := runner.Run([]string{"pull", "pyra", "--dry-run"}); code != 0 {
+	if code := runner.Run([]string{"pull", "source-mac", "--dry-run"}); code != 0 {
 		t.Fatalf("dry run failed: code=%d stderr=%s", code, stderr.String())
 	}
 	if !reflect.DeepEqual(before, snapshot(t, environment.target)) {
@@ -293,9 +343,9 @@ func TestUnknownLocalKeybindingBlocksNormalPull(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr)
-	runner.Fetch = func(string) (Bundle, error) { return bundle, nil }
+	runner.Fetch = func(string, string) (Bundle, error) { return bundle, nil }
 	runner.AppRunning = func() bool { return false }
-	if code := runner.Run([]string{"pull", "pyra"}); code == 0 || !strings.Contains(stderr.String(), "unknown commands") {
+	if code := runner.Run([]string{"pull", "source-mac"}); code == 0 || !strings.Contains(stderr.String(), "unknown commands") {
 		t.Fatalf("unknown local command did not block pull: code=%d stderr=%s", code, stderr.String())
 	}
 	if !reflect.DeepEqual(before, snapshot(t, environment.target)) {

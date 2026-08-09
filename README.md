@@ -1,20 +1,22 @@
 # codex-sync
 
-Pull selected Codex desktop settings from Pyra to another Mac.
+Pull selected Codex desktop settings from one Mac to another.
 
-The tool is deliberately one-way: Pyra is the source, and other Macs only pull from it.
+Each operation is deliberately one-way: the local Mac pulls settings from the source Mac you name.
 
 ## Setup
 
-You need macOS, `/Applications/ChatGPT.app`, Homebrew, and an SSH alias named `pyra`.
+You need macOS, `/Applications/ChatGPT.app`, Homebrew, and SSH access from the target Mac to the source Mac. The source can be an SSH hostname or an alias from `~/.ssh/config`.
 
-Install `codex-sync` from the `tombell/formulae` tap on Pyra and each target Mac:
+Install `codex-sync` from the `tombell/formulae` tap on the source and each target Mac:
 
 ```sh
 brew install tombell/formulae/codex-sync
 ```
 
-Remote pulls resolve `codex-sync` from Pyra's login-shell `PATH`. A standard Homebrew shell setup makes the installed binary available without an additional symlink.
+Remote pulls resolve `codex-sync` from the source Mac's login-shell `PATH`. A standard Homebrew shell setup makes the installed binary available without an additional symlink.
+
+SSH uses the local `$USER` as the remote login name by default. If the source uses a different account, pass `--user <user>` (or `-u <user>`).
 
 Check that the same version is installed on every Mac with `codex-sync --version`.
 
@@ -23,26 +25,27 @@ Check that the same version is installed on every Mac with `codex-sync --version
 Preview a pull:
 
 ```sh
-codex-sync pull pyra --dry-run
+codex-sync pull source-mac --dry-run
 ```
 
 Quit ChatGPT, then apply it:
 
 ```sh
-codex-sync pull pyra
+codex-sync pull source-mac
 ```
 
 Other commands:
 
 ```sh
-codex-sync status pyra  # exit 1 when changes are available
-codex-sync audit        # exit 2 for unknown settings or commands
-codex-sync rollback     # restore the latest completed backup
+codex-sync status source-mac                 # exit 1 when changes are available
+codex-sync pull source-mac --user other-user # override the SSH user
+codex-sync audit                             # exit 2 for unknown settings or commands
+codex-sync rollback                          # restore the latest completed backup
 ```
 
 `status` and dry runs are safe while ChatGPT is open. Pulls and rollbacks require it to be fully quit.
 
-To inspect the sanitized data produced on Pyra:
+To inspect the sanitized data produced on a source Mac:
 
 ```sh
 codex-sync export
@@ -75,7 +78,7 @@ Before applying a pull, `codex-sync`:
 - creates a backup under `~/.local/state/codex-sync/backups/`;
 - writes files atomically and restores the backup if the apply fails or is interrupted.
 
-It also prevents concurrent operations and limits SSH exports to 1 MiB. If Pyra cannot be reached, local settings are not changed.
+It also prevents concurrent operations and limits SSH exports to 1 MiB. If the source cannot be reached, local settings are not changed.
 
 Backups contain complete copies of the affected local files, including rules and profiles, and should be treated as private.
 
@@ -84,7 +87,7 @@ Backups contain complete copies of the affected local files, including rules and
 1. Confirm the setting's path and type from official documentation or a one-setting before/after comparison.
 2. Add it to `configSpecs` or `globalSpecs`. Profile values use `configSpecs` automatically. For shortcuts, add only a verified command ID.
 3. Add fixtures covering the setting and sensitive decoy values.
-4. Test export filtering, audit, dry-run, apply, and rollback, then run `codex-sync audit` on Pyra.
+4. Test export filtering, audit, dry-run, apply, and rollback, then run `codex-sync audit` on the source Mac.
 
 Do not extend an allowlist based only on a plausible key name.
 

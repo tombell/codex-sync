@@ -27,7 +27,7 @@ func buildBundle(layout Layout) (Bundle, error) {
 		Manifest: Manifest{
 			SchemaVersion: BundleSchemaVersion,
 			ToolVersion:   ToolVersion,
-			SourceRole:    CanonicalHost,
+			SourceRole:    BundleSourceRole,
 			AppBundleID:   app.BundleID,
 			AppVersion:    app.Version,
 			AppBuild:      app.Build,
@@ -43,11 +43,11 @@ func decodeBundle(data []byte) (Bundle, error) {
 	decoder.DisallowUnknownFields()
 	var bundle Bundle
 	if err := decoder.Decode(&bundle); err != nil {
-		return Bundle{}, fmt.Errorf("Pyra returned an invalid export bundle: %w", err)
+		return Bundle{}, fmt.Errorf("source returned an invalid export bundle: %w", err)
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); err != io.EOF {
-		return Bundle{}, fmt.Errorf("Pyra returned trailing export data")
+		return Bundle{}, fmt.Errorf("source returned trailing export data")
 	}
 	return bundle, nil
 }
@@ -97,8 +97,8 @@ func validateBundle(bundle Bundle, target AppInfo) (Content, error) {
 	if manifest.ToolVersion != ToolVersion {
 		return Content{}, fmt.Errorf("tool version mismatch; update codex-sync on both Macs")
 	}
-	if manifest.SourceRole != CanonicalHost {
-		return Content{}, fmt.Errorf("bundle was not exported as the canonical Pyra source")
+	if manifest.SourceRole != BundleSourceRole {
+		return Content{}, fmt.Errorf("bundle was not exported by a codex-sync source")
 	}
 	if manifest.AppBundleID != ExpectedBundleID {
 		return Content{}, fmt.Errorf("bundle has an unexpected application bundle ID")
@@ -114,7 +114,7 @@ func validateBundle(bundle Bundle, target AppInfo) (Content, error) {
 		return Content{}, fmt.Errorf("bundle content hash does not match its manifest")
 	}
 	if manifest.AppVersion != target.Version || manifest.AppBuild != target.Build {
-		return Content{}, fmt.Errorf("ChatGPT version mismatch (Pyra %s (%s), local %s (%s))", manifest.AppVersion, manifest.AppBuild, target.Version, target.Build)
+		return Content{}, fmt.Errorf("ChatGPT version mismatch (source %s (%s), local %s (%s))", manifest.AppVersion, manifest.AppBuild, target.Version, target.Build)
 	}
 	if err := validateEntryMap(bundle.Content.Preferences.ConfigToml, configSpecs, "config.toml"); err != nil {
 		return Content{}, err

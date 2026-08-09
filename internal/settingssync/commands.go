@@ -17,9 +17,9 @@ type Runner struct {
 	Layout     Layout
 	Stdout     io.Writer
 	Stderr     io.Writer
-	Fetch      func(string) (Bundle, error)
+	Fetch      func(string, string) (Bundle, error)
 	AppRunning func() bool
-	Hostname   func() string
+	SSHUser    string
 }
 
 func NewRunner(layout Layout, stdout, stderr io.Writer) Runner {
@@ -29,7 +29,7 @@ func NewRunner(layout Layout, stdout, stderr io.Writer) Runner {
 		Stderr:     stderr,
 		Fetch:      fetchBundle,
 		AppRunning: chatgptIsRunning,
-		Hostname:   localHostname,
+		SSHUser:    os.Getenv("USER"),
 	}
 }
 
@@ -56,10 +56,6 @@ func (runner Runner) Run(args []string) int {
 			runErr = fmt.Errorf("usage: codex-sync export")
 			break
 		}
-		if runner.Hostname() != CanonicalHost {
-			runErr = fmt.Errorf("export is restricted to the canonical Pyra host")
-			break
-		}
 		var bundle Bundle
 		bundle, runErr = buildBundle(runner.Layout)
 		if runErr == nil {
@@ -70,18 +66,19 @@ func (runner Runner) Run(args []string) int {
 			}
 		}
 	case "pull":
-		host, dryRun, parseErr := parsePullArgs(args[1:])
+		target, dryRun, parseErr := parseRemoteArgs(args[1:], runner.SSHUser, true)
 		if parseErr != nil {
 			runErr = parseErr
 			break
 		}
-		code, runErr = runner.runPull(host, dryRun)
+		code, runErr = runner.runPull(target, dryRun)
 	case "status":
-		if len(args) != 2 {
-			runErr = fmt.Errorf("usage: codex-sync status pyra")
+		target, _, parseErr := parseRemoteArgs(args[1:], runner.SSHUser, false)
+		if parseErr != nil {
+			runErr = parseErr
 			break
 		}
-		code, runErr = runner.runStatus(args[1])
+		code, runErr = runner.runStatus(target)
 	case "audit":
 		if len(args) != 1 {
 			runErr = fmt.Errorf("usage: codex-sync audit")
@@ -112,28 +109,63 @@ func (runner Runner) Run(args []string) int {
 	return code
 }
 
-func parsePullArgs(args []string) (string, bool, error) {
-	host := ""
-	dryRun := false
-	for _, argument := range args {
-		switch argument {
-		case "--dry-run":
-			dryRun = true
-		default:
-			if strings.HasPrefix(argument, "-") || host != "" {
-				return "", false, fmt.Errorf("usage: codex-sync pull pyra [--dry-run]")
-			}
-			host = argument
-		}
-	}
-	if host == "" {
-		return "", false, fmt.Errorf("usage: codex-sync pull pyra [--dry-run]")
-	}
-	return host, dryRun, nil
+type sshTarget struct {
+	Host string
+	User string
 }
 
-func (runner Runner) runPull(host string, dryRun bool) (int, error) {
-	bundle, err := runner.Fetch(host)
+func parseRemoteArgs(args []string, defaultUser string, allowDryRun bool) (sshTarget, bool, error) {
+	usage := "usage: codex-sync status <host> [--user <user>]"
+	if allowDryRun {
+		usage = "usage: codex-sync pull <host> [--user <user>] [--dry-run]"
+	}
+	target := sshTarget{User: defaultUser}
+	dryRun := false
+	for index := 0; index < len(args); index++ {
+		argument := args[index]
+		switch argument {
+		case "--dry-run":
+			if !allowDryRun {
+				return sshTarget{}, false, fmt.Errorf("%s", usage)
+			}
+			dryRun = true
+		case "--user", "-u":
+			index++
+			if index == len(args) {
+				return sshTarget{}, false, fmt.Errorf("%s", usage)
+			}
+			target.User = args[index]
+		default:
+			if strings.HasPrefix(argument, "--user=") {
+				target.User = strings.TrimPrefix(argument, "--user=")
+				continue
+			}
+			if strings.HasPrefix(argument, "-") || target.Host != "" {
+				return sshTarget{}, false, fmt.Errorf("%s", usage)
+			}
+			target.Host = argument
+		}
+	}
+	if target.Host == "" {
+		return sshTarget{}, false, fmt.Errorf("%s", usage)
+	}
+	if strings.ContainsAny(target.Host, " \t\x00\r\n") {
+		return sshTarget{}, false, fmt.Errorf("SSH host contains unsupported characters")
+	}
+	if target.User == "" {
+		return sshTarget{}, false, fmt.Errorf("SSH user is empty; set USER or pass --user")
+	}
+	if strings.Contains(target.Host, "@") {
+		return sshTarget{}, false, fmt.Errorf("SSH host must not include a user; pass --user instead")
+	}
+	if strings.HasPrefix(target.User, "-") || strings.ContainsAny(target.User, "@ \t\x00\r\n") {
+		return sshTarget{}, false, fmt.Errorf("SSH user contains unsupported characters")
+	}
+	return target, dryRun, nil
+}
+
+func (runner Runner) runPull(target sshTarget, dryRun bool) (int, error) {
+	bundle, err := runner.Fetch(target.Host, target.User)
 	if err != nil {
 		return 1, err
 	}
@@ -151,7 +183,7 @@ func (runner Runner) runPull(host string, dryRun bool) (int, error) {
 	}
 	changes := comparePreferences(current.Preferences, content.Preferences)
 	printChanges(runner.Stdout, changes)
-	printUnknownReport(runner.Stdout, "Pyra", content.Audit)
+	printUnknownReport(runner.Stdout, "Source", content.Audit)
 	printUnknownReport(runner.Stdout, "Local audit", current.Audit)
 	if dryRun {
 		fmt.Fprintln(runner.Stdout, "Dry run only; no local settings or backups were written.")
@@ -175,8 +207,8 @@ func (runner Runner) runPull(host string, dryRun bool) (int, error) {
 	return 0, nil
 }
 
-func (runner Runner) runStatus(host string) (int, error) {
-	bundle, err := runner.Fetch(host)
+func (runner Runner) runStatus(target sshTarget) (int, error) {
+	bundle, err := runner.Fetch(target.Host, target.User)
 	if err != nil {
 		return 1, err
 	}
@@ -194,7 +226,7 @@ func (runner Runner) runStatus(host string) (int, error) {
 	}
 	changes := comparePreferences(current.Preferences, content.Preferences)
 	printChanges(runner.Stdout, changes)
-	printUnknownReport(runner.Stdout, "Pyra", content.Audit)
+	printUnknownReport(runner.Stdout, "Source", content.Audit)
 	printUnknownReport(runner.Stdout, "Local audit", current.Audit)
 	if len(changes) > 0 {
 		return 1, nil
@@ -253,7 +285,7 @@ func (runner Runner) runAudit() (int, error) {
 
 func printChanges(writer io.Writer, changes []string) {
 	if len(changes) == 0 {
-		fmt.Fprintln(writer, "Settings already match Pyra.")
+		fmt.Fprintln(writer, "Settings already match the source.")
 		return
 	}
 	fmt.Fprintln(writer, "Proposed changes (values redacted):")
@@ -270,36 +302,33 @@ func printUnknownReport(writer io.Writer, label string, audit Audit) {
 	}
 }
 
-func fetchBundle(host string) (Bundle, error) {
-	if strings.ToLower(host) != CanonicalHost {
-		return Bundle{}, fmt.Errorf("pull source must be Pyra")
-	}
+func fetchBundle(host, user string) (Bundle, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	command := sshExportCommand(ctx, host)
+	command := sshExportCommand(ctx, host, user)
 	stdout, err := command.StdoutPipe()
 	if err != nil {
-		return Bundle{}, fmt.Errorf("prepare SSH to Pyra: %w", err)
+		return Bundle{}, fmt.Errorf("prepare SSH to source: %w", err)
 	}
 	command.Stderr = io.Discard
 	if err := command.Start(); err != nil {
-		return Bundle{}, fmt.Errorf("could not start SSH to Pyra: %w", err)
+		return Bundle{}, fmt.Errorf("could not start SSH to source: %w", err)
 	}
 	data, readErr := io.ReadAll(io.LimitReader(stdout, MaxBundleBytes+1))
 	if len(data) > MaxBundleBytes {
 		_ = command.Process.Kill()
 		_ = command.Wait()
-		return Bundle{}, fmt.Errorf("Pyra export exceeded the maximum safe bundle size")
+		return Bundle{}, fmt.Errorf("source export exceeded the maximum safe bundle size")
 	}
 	waitErr := command.Wait()
 	if ctx.Err() == context.DeadlineExceeded {
-		return Bundle{}, fmt.Errorf("Pyra export timed out")
+		return Bundle{}, fmt.Errorf("source export timed out")
 	}
 	if readErr != nil {
-		return Bundle{}, fmt.Errorf("read Pyra export: %w", readErr)
+		return Bundle{}, fmt.Errorf("read source export: %w", readErr)
 	}
 	if waitErr != nil {
-		return Bundle{}, fmt.Errorf("Pyra export failed over SSH")
+		return Bundle{}, fmt.Errorf("source export failed over SSH")
 	}
 
 	staging, err := os.MkdirTemp("", "codex-sync.pull.*")
@@ -321,9 +350,9 @@ func fetchBundle(host string) (Bundle, error) {
 	return decodeBundle(staged)
 }
 
-func sshExportCommand(ctx context.Context, host string) *exec.Cmd {
+func sshExportCommand(ctx context.Context, host, user string) *exec.Cmd {
 	const remoteCommand = `exec "$SHELL" -lc 'exec codex-sync export'`
-	return exec.CommandContext(ctx, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, remoteCommand)
+	return exec.CommandContext(ctx, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-l", user, host, remoteCommand)
 }
 
 func chatgptIsRunning() bool {
@@ -336,16 +365,6 @@ func chatgptIsRunning() bool {
 		return false
 	}
 	return true
-}
-
-func localHostname() string {
-	for _, command := range [][]string{{"scutil", "--get", "LocalHostName"}, {"hostname", "-s"}} {
-		output, err := exec.Command(command[0], command[1:]...).Output()
-		if err == nil && strings.TrimSpace(string(output)) != "" {
-			return strings.ToLower(strings.TrimSpace(string(output)))
-		}
-	}
-	return ""
 }
 
 func operationLock() (func(), error) {
@@ -367,9 +386,11 @@ func operationLock() (func(), error) {
 func printUsage(writer io.Writer) {
 	fmt.Fprintln(writer, `Usage:
   codex-sync export
-  codex-sync pull pyra [--dry-run]
-  codex-sync status pyra
+  codex-sync pull <host> [--user <user>] [--dry-run]
+  codex-sync status <host> [--user <user>]
   codex-sync audit
   codex-sync rollback
-  codex-sync --version`)
+  codex-sync --version
+
+SSH user defaults to $USER. Override it with --user <user> or -u <user>.`)
 }
