@@ -147,6 +147,14 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	if agentsEnabled.Value != true {
 		t.Fatalf("unexpected agents enabled preference: %#v", agentsEnabled)
 	}
+	subagentModel := bundle.Content.Preferences.ConfigToml["agents.default_subagent_model"]
+	if subagentModel.Value != "fixture-subagent" {
+		t.Fatalf("unexpected default subagent model: %#v", subagentModel)
+	}
+	subagentReasoning := bundle.Content.Preferences.ConfigToml["agents.default_subagent_reasoning_effort"]
+	if subagentReasoning.Value != "xhigh" {
+		t.Fatalf("unexpected default subagent reasoning effort: %#v", subagentReasoning)
+	}
 	mergeMethod := bundle.Content.Preferences.ConfigToml["desktop.git-pull-request-merge-method"]
 	if mergeMethod.Value != "squash" {
 		t.Fatalf("unexpected pull request merge method: %#v", mergeMethod)

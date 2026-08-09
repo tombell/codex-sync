@@ -57,6 +57,8 @@ var (
 		boolSpec("feedback.enabled"),
 		boolSpec("agents.enabled"),
 		boolSpec("agents.interrupt_message"),
+		patternSpec("agents.default_subagent_model", idPattern),
+		stringSpec("agents.default_subagent_reasoning_effort", "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"),
 		stringSpec("personality", "friendly", "pragmatic", "none"),
 		stringSpec("desktop.composerEnterBehavior", "enter", "cmdIfMultiline", "cmdAlways"),
 		boolSpec("desktop.preventSleepWhileRunning"),

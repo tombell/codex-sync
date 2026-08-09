@@ -12,6 +12,8 @@ enabled = true
 [agents]
 enabled = false
 interrupt_message = true
+default_subagent_model = "target-subagent"
+default_subagent_reasoning_effort = "low"
 
 [desktop]
 composerEnterBehavior = "enter"

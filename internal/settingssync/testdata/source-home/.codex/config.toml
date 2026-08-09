@@ -12,6 +12,8 @@ enabled = false
 [agents]
 enabled = true
 interrupt_message = false
+default_subagent_model = "fixture-subagent"
+default_subagent_reasoning_effort = "xhigh"
 
 [projects."/fixture/private-project"]
 trust_level = "trusted"
