@@ -6,23 +6,22 @@ The tool is deliberately one-way: Pyra is the source, and other Macs only pull f
 
 ## Setup
 
-You need macOS, Go 1.22 or later, `/Applications/ChatGPT.app`, and an SSH alias named `pyra`.
+You need macOS, `/Applications/ChatGPT.app`, Homebrew, and an SSH alias named `pyra`.
 
-Build and install the same revision on Pyra and each target Mac:
+Install `codex-sync` from the `tombell/formulae` tap on Pyra and each target Mac:
 
 ```sh
-make
+brew install tombell/formulae/codex-sync
+```
+
+Remote pulls expect the Pyra binary at `/Users/tombell/.local/bin/codex-sync`. Link the Homebrew installation there on Pyra:
+
+```sh
 mkdir -p ~/.local/bin
-install -m 755 bin/codex-sync ~/.local/bin/codex-sync
+ln -sf "$(brew --prefix)/bin/codex-sync" ~/.local/bin/codex-sync
 ```
 
-Remote pulls expect the Pyra binary at:
-
-```text
-/Users/tombell/.local/bin/codex-sync
-```
-
-Check the installed version with `codex-sync --version`.
+Check that the same version is installed on every Mac with `codex-sync --version`.
 
 ## Usage
 
