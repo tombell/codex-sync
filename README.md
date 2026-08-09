@@ -1,187 +1,101 @@
-# Codex sync
+# codex-sync
 
-`codex-sync` is a manual, pull-only macOS tool for copying a strict allowlist of ChatGPT/Codex desktop preferences from Pyra to another Mac. It never pushes target state back to Pyra.
+Pull selected Codex desktop settings from Pyra to another Mac.
 
-The implementation is a dependency-free Go command. It does not require Python or modify a complete mixed-purpose state store.
+The tool is deliberately one-way: Pyra is the source, and other Macs only pull from it.
 
-## Architecture and safety model
+## Setup
 
-Pyra is the canonical source. A target asks Pyra over SSH to run `codex-sync export`; the sanitized JSON bundle is streamed into a private temporary staging directory on the target. A single bounded stream avoids creating remote temporary data, so `rsync` is unnecessary for the small bundle.
+You need macOS, Go 1.22 or later, `/Applications/ChatGPT.app`, and an SSH alias named `pyra`.
 
-Before a normal pull, the target:
-
-1. validates the bundle schema, exact allowlist, content hash, tool version, bundle ID, and exact ChatGPT version/build;
-2. compares only allowlisted values and prints names/actions with values redacted;
-3. refuses to continue while ChatGPT is running;
-4. creates a timestamped private backup;
-5. renders every target file before changing anything;
-6. replaces files atomically while preserving existing ownership and modes;
-7. restores the backup if an apply is interrupted by an error, `SIGINT`, `SIGTERM`, or `SIGHUP`.
-
-An advisory lock prevents concurrent operations. SSH uses batch mode, a connection timeout, a fixed remote executable path, and a 1 MiB maximum bundle size. Pyra being unavailable never changes local settings.
-
-## Synced preferences
-
-The version-one allowlist contains:
-
-- `~/.codex/config.toml`: personality; composer Enter behavior; follow-up behavior; sleep prevention; menu-bar and context-window toggles; notifications; suggested prompts; appearance mode, colors, font names and sizes, code themes, diff markers, reduced motion, font smoothing and pointer cursors; Browser link targets and screenshot behavior; Computer Use picture-in-picture behavior.
-- `~/.codex/.codex-global-state.json`: only the Browser and Computer Use bundled-plugin auto-install flags. The mixed-purpose file is edited key-by-key and never copied wholesale.
-- `~/.codex/keybindings.json`: validated custom bindings from an explicit command-ID allowlist.
-
-Absent allowlisted values are represented explicitly in the bundle, allowing a target override to be cleared when Pyra uses the application default.
-
-The tool does not sync auth, Keychain data, cookies, browser logins, chats, sessions, drafts, projects, archives, histories, memories, goals, queues, logs, model caches, installation/device IDs, remote-control state, TCC permissions, browser profiles, downloaded plugin caches, `AGENTS.md`, `~/.agents/skills`, databases, or custom theme/pet assets.
-
-Browser site allow/block lists and notification-permission prompt state are excluded because they have not been mapped to safe dedicated local preferences.
-
-## Build and install
-
-Requirements:
-
-- macOS
-- Go 1.22 or newer
-- SSH access from each target Mac to Pyra
-- `/Applications/ChatGPT.app`
-
-Build and test:
+Build and install the same revision on Pyra and each target Mac:
 
 ```sh
-make test
-make build
+make
+mkdir -p ~/.local/bin
+install -m 755 bin/codex-sync ~/.local/bin/codex-sync
 ```
 
-Install the same revision on Pyra and each target:
-
-```sh
-make install
-```
-
-This writes the binary to the fixed path used by remote pulls:
+Remote pulls expect the Pyra binary at:
 
 ```text
 /Users/tombell/.local/bin/codex-sync
 ```
 
-Print the embedded version and commit:
+Check the installed version with `codex-sync --version`.
 
-```sh
-codex-sync --version
-```
+## Usage
 
-## First pull
-
-Run a dry run on a target while ChatGPT is open or closed:
+Preview a pull:
 
 ```sh
 codex-sync pull pyra --dry-run
 ```
 
-For a normal pull, quit ChatGPT manually first:
+Quit ChatGPT, then apply it:
 
 ```sh
 codex-sync pull pyra
 ```
 
-The tool never quits or restarts ChatGPT. It refuses a live apply.
-
-Compare without applying:
+Other commands:
 
 ```sh
-codex-sync status pyra
+codex-sync status pyra  # exit 1 when changes are available
+codex-sync audit        # exit 2 for unknown settings or commands
+codex-sync rollback     # restore the latest completed backup
 ```
 
-`status` exits `0` when settings match and `1` when changes are available.
+`status` and dry runs are safe while ChatGPT is open. Pulls and rollbacks require it to be fully quit.
 
-On Pyra, generate a sanitized export:
+To inspect the sanitized data produced on Pyra:
 
 ```sh
-umask 077
-codex-sync export > /tmp/codex-settings.json
+codex-sync export
 ```
 
-Exports contain allowed preference values. Treat them as private even though they contain no authentication, session, or history state.
+## What gets synced
 
-## Audit, backup, and rollback
+Only allowlisted values from these files are included:
 
-Audit prints allowlisted paths, presence, and hashes without values:
+- `~/.codex/config.toml`: desktop appearance, behavior, notifications, Browser, and Computer Use preferences.
+- `~/.codex/.codex-global-state.json`: Browser and Computer Use plugin auto-install flags.
+- `~/.codex/keybindings.json`: custom bindings for known command IDs.
 
-```sh
-codex-sync audit
-```
+Unrelated values in the first two files are left alone. Missing values are also synced, so a target override can be reset to the application default.
 
-Unknown desktop setting paths or shortcut command IDs are reported and never exported. `audit` exits `2` when it finds any.
+Auth, chats, sessions, history, projects, device state, browser data, permissions, skills, and downloaded assets are not synced.
 
-Completed pulls store private backups below:
+## Safety
 
-```text
-~/.local/state/codex-sync/backups/
-```
+Before applying a pull, `codex-sync`:
 
-Backups are local recovery data and contain complete pre-change copies of the three touched local files. Quit ChatGPT and restore the newest completed, not-yet-rolled-back backup with:
+- checks the bundle schema and hash;
+- requires matching tool and ChatGPT versions on both Macs;
+- prints a redacted diff;
+- rejects unknown exported settings and shortcut commands;
+- creates a backup under `~/.local/state/codex-sync/backups/`;
+- writes files atomically and restores the backup if the apply fails or is interrupted.
 
-```sh
-codex-sync rollback
-```
+It also prevents concurrent operations and limits SSH exports to 1 MiB. If Pyra cannot be reached, local settings are not changed.
 
-## Adding a preference safely
+Backups contain complete copies of the affected local files and should be treated as private.
 
-1. Read the current official Settings and config documentation.
-2. Verify the installed bundle ID/version and locate the preference through key/type/hash inspection or a one-setting before/after comparison.
-3. Add one exact path and its type, enum/range, or string constraint to `configSpecs` or `globalSpecs`. For shortcuts, add only a verified configurable command ID.
-4. Add intentionally machine-local or out-of-scope desktop keys to `knownExcludedDesktopPaths`.
-5. Extend fixtures with the allowed value and sensitive decoys.
-6. Verify export filtering, unknown-key rejection, dry-run, backup, interruption recovery, rollback, and local round-trip behavior.
-7. Run `codex-sync audit` on Pyra before installing on targets.
+## Adding a setting
 
-Never broaden an allowlist based only on a suggestive key name.
+1. Confirm the setting's path and type from official documentation or a one-setting before/after comparison.
+2. Add it to `configSpecs` or `globalSpecs`. For shortcuts, add only a verified command ID.
+3. Add fixtures covering the setting and sensitive decoy values.
+4. Test export filtering, audit, dry-run, apply, and rollback, then run `codex-sync audit` on Pyra.
 
-## Troubleshooting
+Do not extend an allowlist based only on a plausible key name.
 
-### SSH failures
-
-Check the alias and fixed remote command:
-
-```sh
-ssh -T pyra /Users/tombell/.local/bin/codex-sync audit
-```
-
-Pulls use `BatchMode=yes` and will not wait for a password or host-key prompt. Resolve those interactively before retrying.
-
-### Version mismatch
-
-Normal pulls require the same ChatGPT version/build and the same tool version on Pyra and the target. Update both application installations, build the same project revision on both Macs, run `audit`, and retry.
-
-### ChatGPT is running
-
-Dry runs and status checks are safe. Normal pulls and rollback require ChatGPT to be fully quit so in-memory settings cannot overwrite the applied files.
-
-### Unknown settings
-
-Run `audit`. Unknown keys are reported by name and remain untouched. Follow the allowlist-extension process rather than copying their containing file.
-
-## Tests
+## Development
 
 ```sh
 go test ./...
+make                 # current platform
+make prod            # macOS and Linux binaries
 ```
 
-The fixture suite proves:
-
-- only allowlisted values enter exports;
-- auth, session, history and device decoys never enter exports;
-- dry runs perform no settings or backup writes;
-- unknown bundle keys and shortcut commands are rejected;
-- unknown local shortcuts block a normal pull;
-- backups and rollback restore original files;
-- interrupted applies leave no partially written settings;
-- a local round-trip preserves allowed preferences and unrelated target state.
-
-Fixtures and temporary directories are used exclusively. Tests never write Pyra's live settings.
-
-## Future work
-
-- Automated `launchd` pulls.
-- Syncing selected Codex configuration and plugin choices.
-- Custom theme and pet assets.
-- Per-host overrides.
-- Detection of preference changes introduced by ChatGPT updates.
+Tests use fixtures and temporary directories; they do not touch live Codex settings.
