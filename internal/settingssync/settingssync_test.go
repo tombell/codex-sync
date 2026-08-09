@@ -14,16 +14,22 @@ import (
 const testToolVersion = "1.2.3"
 
 func TestSSHExportCommandUsesSelectedUserAndRemoteLoginPath(t *testing.T) {
-	command := sshExportCommand(context.Background(), "source-mac", "alice")
+	command := sshExportCommand(context.Background(), "source-mac", "alice", "/Applications/ChatGPT Preview.app")
 	want := []string{
 		"ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-l", "alice", "source-mac",
-		`exec "$SHELL" -lc 'exec codex-sync export'`,
+		`exec "$SHELL" -lc 'exec codex-sync --app-path '"'"'/Applications/ChatGPT Preview.app'"'"' export'`,
 	}
 	if !reflect.DeepEqual(command.Args, want) {
 		t.Fatalf("SSH command = %#v, want %#v", command.Args, want)
 	}
 	if strings.Contains(strings.Join(command.Args, " "), "/Users/") {
 		t.Fatalf("SSH command contains a hardcoded user path: %#v", command.Args)
+	}
+}
+
+func TestQuoteShellArgumentEscapesSingleQuotes(t *testing.T) {
+	if got, want := quoteShellArgument("/Applications/ChatGPT 'Beta.app"), `'/Applications/ChatGPT '"'"'Beta.app'`; got != want {
+		t.Fatalf("quoted argument = %q, want %q", got, want)
 	}
 }
 
@@ -302,7 +308,12 @@ func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
-	runner.Fetch = func(string, string) (Bundle, error) { return bundle, nil }
+	runner.Fetch = func(_, _, appPath string) (Bundle, error) {
+		if appPath != environment.target.AppPath {
+			t.Fatalf("fetch app path = %q, want %q", appPath, environment.target.AppPath)
+		}
+		return bundle, nil
+	}
 	runner.AppRunning = func() bool { return true }
 	if code := runner.Run([]string{"pull", "source-mac", "--dry-run"}); code != 0 {
 		t.Fatalf("dry run failed: code=%d stderr=%s", code, stderr.String())
@@ -369,7 +380,7 @@ func TestUnknownLocalKeybindingBlocksNormalPull(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
-	runner.Fetch = func(string, string) (Bundle, error) { return bundle, nil }
+	runner.Fetch = func(string, string, string) (Bundle, error) { return bundle, nil }
 	runner.AppRunning = func() bool { return false }
 	if code := runner.Run([]string{"pull", "source-mac"}); code == 0 || !strings.Contains(stderr.String(), "unknown commands") {
 		t.Fatalf("unknown local command did not block pull: code=%d stderr=%s", code, stderr.String())

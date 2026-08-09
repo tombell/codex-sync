@@ -212,7 +212,7 @@ func readKeybindings(layout Layout, strict bool) (Keybindings, []string, error) 
 }
 
 func getAppInfo(layout Layout) (AppInfo, error) {
-	path := layout.AppPath + "/Contents/Info.plist"
+	path := filepath.Join(layout.AppPath, "Contents", "Info.plist")
 	read := func(key string) (string, error) {
 		output, err := exec.Command("/usr/bin/plutil", "-extract", key, "raw", "-o", "-", path).Output()
 		if err != nil {

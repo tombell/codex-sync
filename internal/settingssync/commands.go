@@ -17,7 +17,7 @@ type Runner struct {
 	Layout     Layout
 	Stdout     io.Writer
 	Stderr     io.Writer
-	Fetch      func(string, string) (Bundle, error)
+	Fetch      func(string, string, string) (Bundle, error)
 	AppRunning func() bool
 	SSHUser    string
 	Version    string
@@ -167,7 +167,7 @@ func parseRemoteArgs(args []string, defaultUser string, allowDryRun bool) (sshTa
 }
 
 func (runner Runner) runPull(target sshTarget, dryRun bool) (int, error) {
-	bundle, err := runner.Fetch(target.Host, target.User)
+	bundle, err := runner.Fetch(target.Host, target.User, runner.Layout.AppPath)
 	if err != nil {
 		return 1, err
 	}
@@ -210,7 +210,7 @@ func (runner Runner) runPull(target sshTarget, dryRun bool) (int, error) {
 }
 
 func (runner Runner) runStatus(target sshTarget) (int, error) {
-	bundle, err := runner.Fetch(target.Host, target.User)
+	bundle, err := runner.Fetch(target.Host, target.User, runner.Layout.AppPath)
 	if err != nil {
 		return 1, err
 	}
@@ -304,10 +304,10 @@ func printUnknownReport(writer io.Writer, label string, audit Audit) {
 	}
 }
 
-func fetchBundle(host, user string) (Bundle, error) {
+func fetchBundle(host, user, appPath string) (Bundle, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	command := sshExportCommand(ctx, host, user)
+	command := sshExportCommand(ctx, host, user, appPath)
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		return Bundle{}, fmt.Errorf("prepare SSH to source: %w", err)
@@ -352,9 +352,14 @@ func fetchBundle(host, user string) (Bundle, error) {
 	return decodeBundle(staged)
 }
 
-func sshExportCommand(ctx context.Context, host, user string) *exec.Cmd {
-	const remoteCommand = `exec "$SHELL" -lc 'exec codex-sync export'`
+func sshExportCommand(ctx context.Context, host, user, appPath string) *exec.Cmd {
+	innerCommand := "exec codex-sync --app-path " + quoteShellArgument(appPath) + " export"
+	remoteCommand := `exec "$SHELL" -lc ` + quoteShellArgument(innerCommand)
 	return exec.CommandContext(ctx, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-l", user, host, remoteCommand)
+}
+
+func quoteShellArgument(argument string) string {
+	return "'" + strings.ReplaceAll(argument, "'", `'"'"'`) + "'"
 }
 
 func chatgptIsRunning() bool {
@@ -393,6 +398,9 @@ func printUsage(writer io.Writer) {
   codex-sync audit
   codex-sync rollback
   codex-sync --version
+
+Global options:
+  --app-path <path>  Application bundle path; forwarded to pull/status sources.
 
 SSH user defaults to $USER. Override it with --user <user> or -u <user>.`)
 }

@@ -18,12 +18,14 @@ type Layout struct {
 	AppPath string
 }
 
+const defaultAppPath = "/Applications/ChatGPT.app"
+
 func LiveLayout() (Layout, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Layout{}, fmt.Errorf("find home directory: %w", err)
 	}
-	return Layout{Home: home, AppPath: "/Applications/ChatGPT.app"}, nil
+	return Layout{Home: home, AppPath: defaultAppPath}, nil
 }
 
 func (l Layout) Config() string    { return filepath.Join(l.Home, ".codex", "config.toml") }

@@ -6,7 +6,7 @@ Each operation is deliberately one-way: the local Mac pulls settings from the so
 
 ## Setup
 
-You need macOS, `/Applications/ChatGPT.app`, Homebrew, and SSH access from the target Mac to the source Mac. The source can be an SSH hostname or an alias from `~/.ssh/config`.
+You need macOS, the Codex desktop application, Homebrew, and SSH access from the target Mac to the source Mac. The source can be an SSH hostname or an alias from `~/.ssh/config`.
 
 Install `codex-sync` from the `tombell/formulae` tap on the source and each target Mac:
 
@@ -17,6 +17,8 @@ brew install tombell/formulae/codex-sync
 Remote pulls resolve `codex-sync` from the source Mac's login-shell `PATH`. A standard Homebrew shell setup makes the installed binary available without an additional symlink.
 
 SSH uses the local `$USER` as the remote login name by default. If the source uses a different account, pass `--user <user>` (or `-u <user>`).
+
+The application bundle defaults to `/Applications/ChatGPT.app`. Override it with `--app-path <absolute-path>`. Pulls and status checks forward the override to the source Mac, so the application must be at that path on both Macs.
 
 Check that the same version is installed on every Mac with `codex-sync --version`.
 
@@ -39,6 +41,7 @@ Other commands:
 ```sh
 codex-sync status source-mac                 # exit 1 when changes are available
 codex-sync pull source-mac --user other-user # override the SSH user
+codex-sync audit --app-path "/Applications/ChatGPT Beta.app"
 codex-sync audit                             # exit 2 for unknown settings or commands
 codex-sync rollback                          # restore the latest completed backup
 ```
