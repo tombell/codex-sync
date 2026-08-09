@@ -14,27 +14,42 @@ import (
 )
 
 type Layout struct {
-	Home    string
-	AppPath string
+	Home      string
+	CodexPath string
+	AppPath   string
 }
 
 const defaultAppPath = "/Applications/ChatGPT.app"
 
-func LiveLayout() (Layout, error) {
+func LiveLayout(codexPath string) (Layout, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Layout{}, fmt.Errorf("find home directory: %w", err)
 	}
-	return Layout{Home: home, AppPath: defaultAppPath}, nil
+	if codexPath == "" {
+		codexPath = os.Getenv("CODEX_HOME")
+	}
+	if codexPath != "" {
+		if !filepath.IsAbs(codexPath) {
+			return Layout{}, fmt.Errorf("CODEX_HOME must be an absolute path")
+		}
+		codexPath = filepath.Clean(codexPath)
+	}
+	return Layout{Home: home, CodexPath: codexPath, AppPath: defaultAppPath}, nil
 }
 
-func (l Layout) Config() string    { return filepath.Join(l.Home, ".codex", "config.toml") }
-func (l Layout) CodexHome() string { return filepath.Join(l.Home, ".codex") }
-func (l Layout) GlobalState() string {
-	return filepath.Join(l.Home, ".codex", ".codex-global-state.json")
+func (l Layout) Config() string { return filepath.Join(l.CodexHome(), "config.toml") }
+func (l Layout) CodexHome() string {
+	if l.CodexPath != "" {
+		return l.CodexPath
+	}
+	return filepath.Join(l.Home, ".codex")
 }
-func (l Layout) Keybindings() string { return filepath.Join(l.Home, ".codex", "keybindings.json") }
-func (l Layout) Rules() string       { return filepath.Join(l.Home, ".codex", "rules") }
+func (l Layout) GlobalState() string {
+	return filepath.Join(l.CodexHome(), ".codex-global-state.json")
+}
+func (l Layout) Keybindings() string { return filepath.Join(l.CodexHome(), "keybindings.json") }
+func (l Layout) Rules() string       { return filepath.Join(l.CodexHome(), "rules") }
 func (l Layout) Rule(name string) string {
 	return filepath.Join(l.Rules(), name)
 }

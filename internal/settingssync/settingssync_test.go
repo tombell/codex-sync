@@ -14,16 +14,23 @@ import (
 const testToolVersion = "1.2.3"
 
 func TestSSHExportCommandUsesSelectedUserAndRemoteLoginPath(t *testing.T) {
-	command := sshExportCommand(context.Background(), "source-mac", "alice", "/Applications/ChatGPT Preview.app")
+	command := sshExportCommand(context.Background(), "source-mac", "alice", "/Applications/ChatGPT Preview.app", "/Volumes/settings/codex-preview")
 	want := []string{
 		"ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-l", "alice", "source-mac",
-		`exec "$SHELL" -lc 'exec codex-sync --app-path '"'"'/Applications/ChatGPT Preview.app'"'"' export'`,
+		`exec "$SHELL" -lc 'exec codex-sync --app-path '"'"'/Applications/ChatGPT Preview.app'"'"' --codex-home '"'"'/Volumes/settings/codex-preview'"'"' export'`,
 	}
 	if !reflect.DeepEqual(command.Args, want) {
 		t.Fatalf("SSH command = %#v, want %#v", command.Args, want)
 	}
 	if strings.Contains(strings.Join(command.Args, " "), "/Users/") {
 		t.Fatalf("SSH command contains a hardcoded user path: %#v", command.Args)
+	}
+}
+
+func TestSSHExportCommandUsesRemoteCodexHomeEnvironmentByDefault(t *testing.T) {
+	command := sshExportCommand(context.Background(), "source-mac", "alice", defaultAppPath, "")
+	if strings.Contains(command.Args[len(command.Args)-1], "--codex-home") {
+		t.Fatalf("SSH command overrides remote Codex home by default: %#v", command.Args)
 	}
 }
 
@@ -42,6 +49,37 @@ func TestNewRunnerUsesEnvironmentSSHUser(t *testing.T) {
 	}
 	if runner.Version != testToolVersion {
 		t.Fatalf("CLI version = %q, want %q", runner.Version, testToolVersion)
+	}
+}
+
+func TestLayoutCodexHomeOverridePreservesBackupRoot(t *testing.T) {
+	layout := Layout{Home: "/Users/alice", CodexPath: "/Volumes/settings/codex"}
+	if got, want := layout.Config(), "/Volumes/settings/codex/config.toml"; got != want {
+		t.Fatalf("config path = %q, want %q", got, want)
+	}
+	if got, want := layout.Backups(), "/Users/alice/.local/state/codex-sync/backups"; got != want {
+		t.Fatalf("backup path = %q, want %q", got, want)
+	}
+}
+
+func TestLiveLayoutUsesCodexHomeEnvironment(t *testing.T) {
+	t.Setenv("CODEX_HOME", "/Volumes/settings/codex")
+	layout, err := LiveLayout("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := layout.CodexHome(), "/Volumes/settings/codex"; got != want {
+		t.Fatalf("Codex home = %q, want %q", got, want)
+	}
+	layout, err = LiveLayout("/Volumes/explicit/codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := layout.CodexHome(), "/Volumes/explicit/codex"; got != want {
+		t.Fatalf("explicit Codex home = %q, want %q", got, want)
+	}
+	if _, err := LiveLayout("relative/codex"); err == nil || !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("relative Codex home error = %v", err)
 	}
 }
 
@@ -308,9 +346,13 @@ func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
-	runner.Fetch = func(_, _, appPath string) (Bundle, error) {
+	runner.SourceCodexHome = "/Users/remote/.codex-preview"
+	runner.Fetch = func(_, _, appPath, codexHome string) (Bundle, error) {
 		if appPath != environment.target.AppPath {
 			t.Fatalf("fetch app path = %q, want %q", appPath, environment.target.AppPath)
+		}
+		if codexHome != runner.SourceCodexHome {
+			t.Fatalf("fetch source Codex home = %q, want %q", codexHome, runner.SourceCodexHome)
 		}
 		return bundle, nil
 	}
@@ -380,7 +422,7 @@ func TestUnknownLocalKeybindingBlocksNormalPull(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
-	runner.Fetch = func(string, string, string) (Bundle, error) { return bundle, nil }
+	runner.Fetch = func(string, string, string, string) (Bundle, error) { return bundle, nil }
 	runner.AppRunning = func() bool { return false }
 	if code := runner.Run([]string{"pull", "source-mac"}); code == 0 || !strings.Contains(stderr.String(), "unknown commands") {
 		t.Fatalf("unknown local command did not block pull: code=%d stderr=%s", code, stderr.String())

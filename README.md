@@ -20,6 +20,8 @@ SSH uses the local `$USER` as the remote login name by default. If the source us
 
 The application bundle defaults to `/Applications/ChatGPT.app`. Override it with `--app-path <absolute-path>`. Pulls and status checks forward the override to the source Mac, so the application must be at that path on both Macs.
 
+Settings default to `~/.codex` on each Mac and honor that machine's `CODEX_HOME` when set. Use `--codex-home <absolute-path>` to override the local settings root. For a one-off remote override during pull or status, use `--source-codex-home <absolute-path>`.
+
 Check that the same version is installed on every Mac with `codex-sync --version`.
 
 ## Usage
@@ -42,6 +44,8 @@ Other commands:
 codex-sync status source-mac                 # exit 1 when changes are available
 codex-sync pull source-mac --user other-user # override the SSH user
 codex-sync audit --app-path "/Applications/ChatGPT Beta.app"
+codex-sync pull source-mac --codex-home /Volumes/settings/codex \
+  --source-codex-home /Users/other-user/.codex-preview
 codex-sync audit                             # exit 2 for unknown settings or commands
 codex-sync rollback                          # restore the latest completed backup
 ```
@@ -56,13 +60,13 @@ codex-sync export
 
 ## What gets synced
 
-Settings are collected from these files:
+Settings are collected from these files under `$CODEX_HOME` (default `~/.codex`):
 
-- `~/.codex/config.toml`: model, reasoning, and capability defaults; Git preferences; desktop appearance and behavior; notifications; Browser; and Computer Use preferences.
-- `~/.codex/*.config.toml`: the same allowlisted settings for named profiles.
-- `~/.codex/.codex-global-state.json`: Browser and Computer Use plugin auto-install flags.
-- `~/.codex/keybindings.json`: custom bindings for known command IDs.
-- `~/.codex/rules/*.rules`: the complete set of user command rules.
+- `config.toml`: model, reasoning, and capability defaults; Git preferences; desktop appearance and behavior; notifications; Browser; and Computer Use preferences.
+- `*.config.toml`: the same allowlisted settings for named profiles.
+- `.codex-global-state.json`: Browser and Computer Use plugin auto-install flags.
+- `keybindings.json`: custom bindings for known command IDs.
+- `rules/*.rules`: the complete set of user command rules.
 
 Unrelated values in the config, profile, and global-state files are left alone. Missing allowlisted values are also synced, so a target override can be reset to the application default. Rules are synced exactly: target-only `.rules` files are removed, while unrelated files in the rules directory are untouched.
 

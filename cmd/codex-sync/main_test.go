@@ -29,27 +29,58 @@ func TestParseGlobalArgsAcceptsAppPathAnywhere(t *testing.T) {
 		{"audit", "--app-path", "/Applications/ChatGPT Beta.app"},
 		{"audit", "--app-path=/Applications/ChatGPT Beta.app"},
 	} {
-		remaining, appPath, err := parseGlobalArgs(args)
+		remaining, options, err := parseGlobalArgs(args)
 		if err != nil {
 			t.Fatalf("parseGlobalArgs(%q): %v", args, err)
 		}
 		if want := []string{"audit"}; !reflect.DeepEqual(remaining, want) {
 			t.Fatalf("parseGlobalArgs(%q) args = %q, want %q", args, remaining, want)
 		}
-		if want := "/Applications/ChatGPT Beta.app"; appPath != want {
-			t.Fatalf("parseGlobalArgs(%q) app path = %q, want %q", args, appPath, want)
+		if want := "/Applications/ChatGPT Beta.app"; options.AppPath != want {
+			t.Fatalf("parseGlobalArgs(%q) app path = %q, want %q", args, options.AppPath, want)
 		}
 	}
 }
 
-func TestParseGlobalArgsRejectsInvalidAppPath(t *testing.T) {
+func TestParseGlobalArgsAcceptsCodexHomeOverrides(t *testing.T) {
+	args := []string{
+		"pull", "source-mac",
+		"--codex-home", "/Users/local/.codex-beta",
+		"--source-codex-home=/Users/remote/.codex-preview",
+	}
+	remaining, options, err := parseGlobalArgs(args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"pull", "source-mac"}; !reflect.DeepEqual(remaining, want) {
+		t.Fatalf("remaining args = %q, want %q", remaining, want)
+	}
+	if want := "/Users/local/.codex-beta"; options.CodexHome != want {
+		t.Fatalf("Codex home = %q, want %q", options.CodexHome, want)
+	}
+	if want := "/Users/remote/.codex-preview"; options.SourceCodexHome != want {
+		t.Fatalf("source Codex home = %q, want %q", options.SourceCodexHome, want)
+	}
+}
+
+func TestParseGlobalArgsRejectsInvalidPaths(t *testing.T) {
 	for _, args := range [][]string{
 		{"audit", "--app-path"},
 		{"audit", "--app-path", "ChatGPT.app"},
 		{"audit", "--app-path=/Applications/ChatGPT.app", "--app-path", "/Applications/Other.app"},
+		{"audit", "--codex-home", ".codex-beta"},
+		{"pull", "source-mac", "--source-codex-home"},
 	} {
-		if _, _, err := parseGlobalArgs(args); err == nil || !strings.Contains(err.Error(), "--app-path") {
+		if _, _, err := parseGlobalArgs(args); err == nil || !strings.Contains(err.Error(), "--") {
 			t.Fatalf("parseGlobalArgs(%q) error = %v", args, err)
 		}
+	}
+}
+
+func TestRunRejectsSourceCodexHomeForLocalCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"audit", "--source-codex-home", "/Users/remote/.codex"}, &stdout, &stderr)
+	if code == 0 || !strings.Contains(stderr.String(), "only valid with pull or status") {
+		t.Fatalf("code = %d, stderr = %q", code, stderr.String())
 	}
 }
