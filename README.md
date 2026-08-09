@@ -50,15 +50,17 @@ codex-sync export
 
 ## What gets synced
 
-Only allowlisted values from these files are included:
+Settings are collected from these files:
 
 - `~/.codex/config.toml`: model, reasoning, and capability defaults; Git preferences; desktop appearance and behavior; notifications; Browser; and Computer Use preferences.
+- `~/.codex/*.config.toml`: the same allowlisted settings for named profiles.
 - `~/.codex/.codex-global-state.json`: Browser and Computer Use plugin auto-install flags.
 - `~/.codex/keybindings.json`: custom bindings for known command IDs.
+- `~/.codex/rules/*.rules`: the complete set of user command rules.
 
-Unrelated values in the first two files are left alone. Missing values are also synced, so a target override can be reset to the application default.
+Unrelated values in the config, profile, and global-state files are left alone. Missing allowlisted values are also synced, so a target override can be reset to the application default. Rules are synced exactly: target-only `.rules` files are removed, while unrelated files in the rules directory are untouched.
 
-Auth, chats, sessions, history, projects, device state, browser data, permissions, skills, and downloaded assets are not synced.
+Auth, chats, sessions, history, projects, device state, browser data, permission profiles, skills, and downloaded assets are not synced.
 
 ## Safety
 
@@ -73,12 +75,12 @@ Before applying a pull, `codex-sync`:
 
 It also prevents concurrent operations and limits SSH exports to 1 MiB. If Pyra cannot be reached, local settings are not changed.
 
-Backups contain complete copies of the affected local files and should be treated as private.
+Backups contain complete copies of the affected local files, including rules and profiles, and should be treated as private.
 
 ## Adding a setting
 
 1. Confirm the setting's path and type from official documentation or a one-setting before/after comparison.
-2. Add it to `configSpecs` or `globalSpecs`. For shortcuts, add only a verified command ID.
+2. Add it to `configSpecs` or `globalSpecs`. Profile values use `configSpecs` automatically. For shortcuts, add only a verified command ID.
 3. Add fixtures covering the setting and sensitive decoy values.
 4. Test export filtering, audit, dry-run, apply, and rollback, then run `codex-sync audit` on Pyra.
 

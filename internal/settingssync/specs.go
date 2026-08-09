@@ -4,10 +4,12 @@ import "regexp"
 
 const (
 	ToolVersion         = "1.0.0"
-	BundleSchemaVersion = 1
+	BundleSchemaVersion = 2
 	ExpectedBundleID    = "com.openai.codex"
 	CanonicalHost       = "pyra"
 	MaxBundleBytes      = 1024 * 1024
+	MaxManagedFiles     = 64
+	MaxManagedFileBytes = 64 * 1024
 )
 
 type valueKind string
@@ -47,6 +49,8 @@ var (
 	textPattern        = regexp.MustCompile(`^[^\x00-\x1f\x7f]{1,256}$`)
 	idPattern          = regexp.MustCompile(`^[A-Za-z0-9._:/+\-]{1,160}$`)
 	instructionPattern = regexp.MustCompile(`^[^\x00-\x1f\x7f]{0,1000}$`)
+	ruleNamePattern    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.rules$`)
+	profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.config\.toml$`)
 
 	configSpecs = []settingSpec{
 		patternSpec("model", idPattern),

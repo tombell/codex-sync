@@ -119,6 +119,18 @@ func validateBundle(bundle Bundle, target AppInfo) (Content, error) {
 	if err := validateEntryMap(bundle.Content.Preferences.ConfigToml, configSpecs, "config.toml"); err != nil {
 		return Content{}, err
 	}
+	profiles := bundle.Content.Preferences.ConfigProfiles
+	if profiles == nil || len(profiles) > MaxManagedFiles {
+		return Content{}, fmt.Errorf("config profiles have an invalid schema")
+	}
+	for name, entries := range profiles {
+		if err := validateManagedName(name, ".config.toml"); err != nil {
+			return Content{}, err
+		}
+		if err := validateEntryMap(entries, configSpecs, "config profile "+name); err != nil {
+			return Content{}, err
+		}
+	}
 	if err := validateEntryMap(bundle.Content.Preferences.GlobalState, globalSpecs, "global state"); err != nil {
 		return Content{}, err
 	}
@@ -135,6 +147,15 @@ func validateBundle(bundle Bundle, target AppInfo) (Content, error) {
 		}
 		if binding.Key != nil && (len(*binding.Key) == 0 || len(*binding.Key) > 128 || hasControl(*binding.Key)) {
 			return Content{}, fmt.Errorf("bundle keybindings contain invalid key at entry %d", index)
+		}
+	}
+	rules := bundle.Content.Preferences.Rules
+	if rules == nil || len(rules) > MaxManagedFiles {
+		return Content{}, fmt.Errorf("rules have an invalid schema")
+	}
+	for name, content := range rules {
+		if err := validateManagedText(name, content, ".rules"); err != nil {
+			return Content{}, err
 		}
 	}
 	audit := bundle.Content.Audit
@@ -175,6 +196,57 @@ func comparePreferences(current, proposed Preferences) []string {
 	}
 	if !reflect.DeepEqual(current.Keybindings, proposed.Keybindings) {
 		changes = append(changes, "keybindings:custom bindings:change")
+	}
+	profileNames := make(map[string]struct{})
+	for name := range current.ConfigProfiles {
+		profileNames[name] = struct{}{}
+	}
+	for name := range proposed.ConfigProfiles {
+		profileNames[name] = struct{}{}
+	}
+	for _, name := range sortedSet(profileNames) {
+		before, ok := current.ConfigProfiles[name]
+		if !ok {
+			before = preferenceEntries(configSpecs, nil)
+		}
+		after, ok := proposed.ConfigProfiles[name]
+		if !ok {
+			after = preferenceEntries(configSpecs, nil)
+		}
+		for _, spec := range configSpecs {
+			beforeEntry, afterEntry := before[spec.Path], after[spec.Path]
+			if reflect.DeepEqual(beforeEntry, afterEntry) {
+				continue
+			}
+			action := "change"
+			if !afterEntry.Present {
+				action = "clear"
+			} else if !beforeEntry.Present {
+				action = "set"
+			}
+			changes = append(changes, fmt.Sprintf("config_profile[%s]:%s:%s", name, spec.Path, action))
+		}
+	}
+	ruleNames := make(map[string]struct{})
+	for name := range current.Rules {
+		ruleNames[name] = struct{}{}
+	}
+	for name := range proposed.Rules {
+		ruleNames[name] = struct{}{}
+	}
+	for _, name := range sortedSet(ruleNames) {
+		before, beforePresent := current.Rules[name]
+		after, afterPresent := proposed.Rules[name]
+		if beforePresent == afterPresent && before == after {
+			continue
+		}
+		action := "change"
+		if !afterPresent {
+			action = "clear"
+		} else if !beforePresent {
+			action = "set"
+		}
+		changes = append(changes, fmt.Sprintf("rules:%s:%s", name, action))
 	}
 	return changes
 }

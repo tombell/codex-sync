@@ -1,0 +1,6 @@
+model = "fixture-profile-model"
+model_reasoning_effort = "high"
+auth_token = "DECOY_PROFILE_AUTH_VALUE"
+
+[desktop]
+conversationDetailMode = "STEPS_EXECUTION"

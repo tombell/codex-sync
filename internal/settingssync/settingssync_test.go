@@ -73,7 +73,11 @@ func copyTree(t *testing.T, source, destination string) {
 func snapshot(t *testing.T, layout Layout) map[string][]byte {
 	t.Helper()
 	result := make(map[string][]byte)
-	for name, path := range targetPaths(layout) {
+	paths, err := existingTargetPaths(layout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, path := range paths {
 		data, err := os.ReadFile(path)
 		if os.IsNotExist(err) {
 			result[name] = nil
@@ -116,6 +120,7 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	}
 	for _, decoy := range []string{
 		"DECOY_AUTH_CONFIG_VALUE", "DECOY_UNKNOWN_SETTING_VALUE",
+		"DECOY_PROFILE_AUTH_VALUE",
 		"DECOY_PROMPT_HISTORY_VALUE", "DECOY_AUTH_GLOBAL_VALUE", "DECOY_SESSION_VALUE",
 		"DECOY_HISTORY_VALUE", "DECOY_INSTALLATION_ID_VALUE", "DECOY_THREAD_VALUE",
 		"/fixture/private-project",
@@ -154,6 +159,13 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	subagentReasoning := bundle.Content.Preferences.ConfigToml["agents.default_subagent_reasoning_effort"]
 	if subagentReasoning.Value != "xhigh" {
 		t.Fatalf("unexpected default subagent reasoning effort: %#v", subagentReasoning)
+	}
+	profileModel := bundle.Content.Preferences.ConfigProfiles["review.config.toml"]["model"]
+	if profileModel.Value != "fixture-profile-model" {
+		t.Fatalf("unexpected profile model: %#v", profileModel)
+	}
+	if !strings.Contains(bundle.Content.Preferences.Rules["default.rules"], `pattern = ["git", "status"]`) {
+		t.Fatalf("unexpected default rules: %#v", bundle.Content.Preferences.Rules)
 	}
 	mergeMethod := bundle.Content.Preferences.ConfigToml["desktop.git-pull-request-merge-method"]
 	if mergeMethod.Value != "squash" {
@@ -239,6 +251,17 @@ func TestUnknownBundleKeyAndKeybindingAreRejected(t *testing.T) {
 	if _, _, err := validateKeybindings(data, true); err == nil {
 		t.Fatal("unknown keybinding command was accepted")
 	}
+
+	bundle, err = buildBundle(environment.source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle.Content.Preferences.Rules["../invalid.rules"] = ""
+	content, _ = canonicalJSON(bundle.Content)
+	bundle.Manifest.ContentSHA256 = sha256Bytes(content)
+	if _, err := validateBundle(bundle, app); err == nil {
+		t.Fatal("unsafe rule filename was accepted")
+	}
 }
 
 func TestUnknownLocalKeybindingBlocksNormalPull(t *testing.T) {
@@ -285,6 +308,58 @@ func TestBackupAndRollbackRestoreOriginalFiles(t *testing.T) {
 	}
 }
 
+func TestRollbackSupportsSchemaOneBackups(t *testing.T) {
+	layout := Layout{Home: t.TempDir()}
+	backup := filepath.Join(layout.Backups(), "legacy")
+	if err := os.MkdirAll(backup, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := backupManifest{
+		SchemaVersion: 1,
+		CreatedAt:     "2026-01-01T00:00:00Z",
+		Stores:        make(map[string]backupStore),
+	}
+	for name, path := range coreTargetPaths(layout) {
+		original := []byte("original " + name + "\n")
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("changed "+name+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(backup, name+".backup"), original, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		manifest.Stores[name] = backupStore{Present: true, Mode: 0o600, SHA256: sha256Bytes(original)}
+	}
+	data, err := canonicalJSON(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backup, "manifest.json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backup, "applied-at"), []byte("2026-01-01T00:00:00Z\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := rollback(layout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored != backup {
+		t.Fatalf("restored backup %s, want %s", restored, backup)
+	}
+	for name, path := range coreTargetPaths(layout) {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(data) != "original "+name+"\n" {
+			t.Fatalf("legacy backup did not restore %s", name)
+		}
+	}
+}
+
 func TestInterruptedApplyRestoresEveryTarget(t *testing.T) {
 	environment := newFixtureEnvironment(t)
 	before := snapshot(t, environment.target)
@@ -313,6 +388,7 @@ func TestLocalRoundTripPreservesAllowedPreferencesOnly(t *testing.T) {
 	}
 	config, _ := os.ReadFile(environment.target.Config())
 	global, _ := os.ReadFile(environment.target.GlobalState())
+	profile, _ := os.ReadFile(environment.target.Profile("review.config.toml"))
 	for _, decoy := range []string{"TARGET_AUTH_MUST_STAY", "TARGET_HISTORY_MUST_STAY"} {
 		if !bytes.Contains(config, []byte(decoy)) {
 			t.Errorf("target config did not preserve %s", decoy)
@@ -322,5 +398,21 @@ func TestLocalRoundTripPreservesAllowedPreferencesOnly(t *testing.T) {
 		if !bytes.Contains(global, []byte(decoy)) {
 			t.Errorf("target global state did not preserve %s", decoy)
 		}
+	}
+	if !bytes.Contains(profile, []byte("TARGET_PROFILE_AUTH_MUST_STAY")) {
+		t.Error("target profile did not preserve unrelated auth setting")
+	}
+	localProfile, _ := os.ReadFile(environment.target.Profile("local.config.toml"))
+	if !bytes.Contains(localProfile, []byte("TARGET_LOCAL_PROFILE_AUTH_MUST_STAY")) || bytes.Contains(localProfile, []byte("target-local-model")) {
+		t.Error("target-only profile did not preserve unrelated values and clear managed values")
+	}
+	if !fileExists(environment.target.Profile("optimize.config.toml")) {
+		t.Error("source-only profile was not created")
+	}
+	if fileExists(environment.target.Rule("local.rules")) {
+		t.Error("target-only rule was not removed")
+	}
+	if !fileExists(environment.target.Rule("review.rules")) {
+		t.Error("source-only rule was not created")
 	}
 }

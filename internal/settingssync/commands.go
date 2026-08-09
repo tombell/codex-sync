@@ -236,6 +236,8 @@ func (runner Runner) runAudit() (int, error) {
 		}
 	}
 	fmt.Fprintf(runner.Stdout, "keybindings: %d custom entries\n", len(content.Preferences.Keybindings.Bindings))
+	fmt.Fprintf(runner.Stdout, "config profiles: %d with allowlisted settings\n", len(content.Preferences.ConfigProfiles))
+	fmt.Fprintf(runner.Stdout, "rules: %d files\n", len(content.Preferences.Rules))
 	for _, path := range content.Audit.UnknownConfigPaths {
 		fmt.Fprintf(runner.Stdout, "UNKNOWN config setting (not synced): %s\n", path)
 	}

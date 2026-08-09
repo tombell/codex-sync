@@ -1,0 +1,6 @@
+model = "target-profile-model"
+model_reasoning_effort = "low"
+auth_token = "TARGET_PROFILE_AUTH_MUST_STAY"
+
+[desktop]
+conversationDetailMode = "STEPS_PROSE"

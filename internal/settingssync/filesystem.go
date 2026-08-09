@@ -11,16 +11,17 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
 )
 
-type renderedTargets struct {
-	Config      []byte
-	GlobalState []byte
-	Keybindings []byte
-	HasBindings bool
+type renderedTarget struct {
+	Name    string
+	Path    string
+	Data    []byte
+	Present bool
 }
 
 type backupStore struct {
@@ -35,12 +36,31 @@ type backupManifest struct {
 	Stores        map[string]backupStore `json:"stores"`
 }
 
-func targetPaths(layout Layout) map[string]string {
+func coreTargetPaths(layout Layout) map[string]string {
 	return map[string]string{
 		"config":       layout.Config(),
 		"global_state": layout.GlobalState(),
 		"keybindings":  layout.Keybindings(),
 	}
+}
+
+func existingTargetPaths(layout Layout) (map[string]string, error) {
+	result := coreTargetPaths(layout)
+	rules, err := readRules(layout)
+	if err != nil {
+		return nil, err
+	}
+	for name := range rules {
+		result["rules/"+name] = layout.Rule(name)
+	}
+	profiles, err := readManagedTextFiles(layout.CodexHome(), ".config.toml")
+	if err != nil {
+		return nil, err
+	}
+	for name := range profiles {
+		result["profiles/"+name] = layout.Profile(name)
+	}
+	return result, nil
 }
 
 func renderGlobalState(original []byte, present bool, entries map[string]Entry) ([]byte, error) {
@@ -73,28 +93,72 @@ func renderKeybindings(keybindings Keybindings) ([]byte, bool, error) {
 	return append(data, '\n'), true, nil
 }
 
-func renderTargets(layout Layout, proposed Preferences) (renderedTargets, error) {
+func renderTargets(layout Layout, proposed Preferences) ([]renderedTarget, error) {
 	config, err := readRequired(layout.Config())
 	if err != nil {
-		return renderedTargets{}, err
+		return nil, err
 	}
 	renderedConfig, err := renderConfig(string(config), proposed.ConfigToml)
 	if err != nil {
-		return renderedTargets{}, err
+		return nil, err
 	}
 	global, globalPresent, err := readOptional(layout.GlobalState())
 	if err != nil {
-		return renderedTargets{}, err
+		return nil, err
 	}
 	renderedGlobal, err := renderGlobalState(global, globalPresent, proposed.GlobalState)
 	if err != nil {
-		return renderedTargets{}, err
+		return nil, err
 	}
 	renderedBindings, bindingsPresent, err := renderKeybindings(proposed.Keybindings)
 	if err != nil {
-		return renderedTargets{}, err
+		return nil, err
 	}
-	return renderedTargets{Config: renderedConfig, GlobalState: renderedGlobal, Keybindings: renderedBindings, HasBindings: bindingsPresent}, nil
+	targets := []renderedTarget{
+		{Name: "config", Path: layout.Config(), Data: renderedConfig, Present: true},
+		{Name: "global_state", Path: layout.GlobalState(), Data: renderedGlobal, Present: true},
+		{Name: "keybindings", Path: layout.Keybindings(), Data: renderedBindings, Present: bindingsPresent},
+	}
+
+	localProfiles, err := readManagedTextFiles(layout.CodexHome(), ".config.toml")
+	if err != nil {
+		return nil, err
+	}
+	profileNames := make(map[string]struct{})
+	for name := range localProfiles {
+		profileNames[name] = struct{}{}
+	}
+	for name := range proposed.ConfigProfiles {
+		profileNames[name] = struct{}{}
+	}
+	for _, name := range sortedSet(profileNames) {
+		entries, ok := proposed.ConfigProfiles[name]
+		if !ok {
+			entries = preferenceEntries(configSpecs, nil)
+		}
+		rendered, err := renderConfig(localProfiles[name], entries)
+		if err != nil {
+			return nil, fmt.Errorf("render profile %s: %w", name, err)
+		}
+		targets = append(targets, renderedTarget{Name: "profiles/" + name, Path: layout.Profile(name), Data: rendered, Present: true})
+	}
+
+	localRules, err := readRules(layout)
+	if err != nil {
+		return nil, err
+	}
+	ruleNames := make(map[string]struct{})
+	for name := range localRules {
+		ruleNames[name] = struct{}{}
+	}
+	for name := range proposed.Rules {
+		ruleNames[name] = struct{}{}
+	}
+	for _, name := range sortedSet(ruleNames) {
+		content, present := proposed.Rules[name]
+		targets = append(targets, renderedTarget{Name: "rules/" + name, Path: layout.Rule(name), Data: []byte(content), Present: present})
+	}
+	return targets, nil
 }
 
 func ensurePrivateDirectory(path string) error {
@@ -186,7 +250,35 @@ func backupID() (string, error) {
 	return time.Now().UTC().Format("20060102T150405Z") + "-" + hex.EncodeToString(random), nil
 }
 
-func createBackup(layout Layout) (string, error) {
+func backupTargetPath(layout Layout, name string) (string, error) {
+	if path, ok := coreTargetPaths(layout)[name]; ok {
+		return path, nil
+	}
+	if strings.HasPrefix(name, "rules/") {
+		filename := strings.TrimPrefix(name, "rules/")
+		if err := validateManagedName(filename, ".rules"); err != nil {
+			return "", err
+		}
+		return layout.Rule(filename), nil
+	}
+	if strings.HasPrefix(name, "profiles/") {
+		filename := strings.TrimPrefix(name, "profiles/")
+		if err := validateManagedName(filename, ".config.toml"); err != nil {
+			return "", err
+		}
+		return layout.Profile(filename), nil
+	}
+	return "", fmt.Errorf("unknown backup store %q", name)
+}
+
+func backupDataPath(backup, name string, schemaVersion int) string {
+	if schemaVersion == 1 {
+		return filepath.Join(backup, name+".backup")
+	}
+	return filepath.Join(backup, "stores", filepath.FromSlash(name)+".backup")
+}
+
+func createBackup(layout Layout, paths map[string]string) (string, error) {
 	if err := ensurePrivateDirectory(layout.Backups()); err != nil {
 		return "", err
 	}
@@ -198,8 +290,12 @@ func createBackup(layout Layout) (string, error) {
 	if err := os.Mkdir(destination, 0o700); err != nil {
 		return "", err
 	}
-	manifest := backupManifest{SchemaVersion: 1, CreatedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), Stores: make(map[string]backupStore)}
-	for name, source := range targetPaths(layout) {
+	manifest := backupManifest{SchemaVersion: 2, CreatedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), Stores: make(map[string]backupStore)}
+	for name, source := range paths {
+		resolved, err := backupTargetPath(layout, name)
+		if err != nil || resolved != source {
+			return "", fmt.Errorf("invalid backup target %q", name)
+		}
 		data, present, err := readOptional(source)
 		if err != nil {
 			return "", err
@@ -212,7 +308,7 @@ func createBackup(layout Layout) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		backupPath := filepath.Join(destination, name+".backup")
+		backupPath := backupDataPath(destination, name, manifest.SchemaVersion)
 		if err := atomicWrite(backupPath, data, ""); err != nil {
 			return "", err
 		}
@@ -236,12 +332,20 @@ func loadBackupManifest(backup string) (backupManifest, error) {
 	var manifest backupManifest
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&manifest); err != nil || manifest.SchemaVersion != 1 || len(manifest.Stores) != 3 {
+	if err := decoder.Decode(&manifest); err != nil || (manifest.SchemaVersion != 1 && manifest.SchemaVersion != 2) || len(manifest.Stores) < 3 || len(manifest.Stores) > 3+4*MaxManagedFiles {
 		return backupManifest{}, fmt.Errorf("backup manifest has an invalid schema")
 	}
 	for _, name := range []string{"config", "global_state", "keybindings"} {
 		if _, ok := manifest.Stores[name]; !ok {
 			return backupManifest{}, fmt.Errorf("backup manifest is missing %s", name)
+		}
+	}
+	if manifest.SchemaVersion == 1 && len(manifest.Stores) != 3 {
+		return backupManifest{}, fmt.Errorf("backup manifest has an invalid schema")
+	}
+	for name := range manifest.Stores {
+		if _, err := backupTargetPath(Layout{}, name); err != nil {
+			return backupManifest{}, fmt.Errorf("backup manifest contains an invalid store: %w", err)
 		}
 	}
 	return manifest, nil
@@ -252,15 +356,18 @@ func restoreBackup(layout Layout, backup string) error {
 	if err != nil {
 		return err
 	}
-	for name, destination := range targetPaths(layout) {
-		metadata := manifest.Stores[name]
+	for name, metadata := range manifest.Stores {
+		destination, err := backupTargetPath(layout, name)
+		if err != nil {
+			return err
+		}
 		if !metadata.Present {
 			if err := atomicRemove(destination); err != nil {
 				return err
 			}
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(backup, name+".backup"))
+		data, err := os.ReadFile(backupDataPath(backup, name, manifest.SchemaVersion))
 		if err != nil || sha256Bytes(data) != metadata.SHA256 {
 			return fmt.Errorf("backup file is missing or corrupt: %s", name)
 		}
@@ -279,11 +386,15 @@ func markBackup(backup, name string) error {
 }
 
 func applyPreferences(layout Layout, proposed Preferences, failAfterReplace int) (string, error) {
-	rendered, err := renderTargets(layout, proposed)
+	targets, err := renderTargets(layout, proposed)
 	if err != nil {
 		return "", err
 	}
-	backup, err := createBackup(layout)
+	paths := make(map[string]string, len(targets))
+	for _, target := range targets {
+		paths[target.Name] = target.Path
+	}
+	backup, err := createBackup(layout, paths)
 	if err != nil {
 		return "", err
 	}
@@ -304,26 +415,17 @@ func applyPreferences(layout Layout, proposed Preferences, failAfterReplace int)
 		close(done)
 	}()
 
-	install := []struct {
-		path    string
-		data    []byte
-		present bool
-	}{
-		{layout.Config(), rendered.Config, true},
-		{layout.GlobalState(), rendered.GlobalState, true},
-		{layout.Keybindings(), rendered.Keybindings, rendered.HasBindings},
-	}
 	installed := 0
 	var applyErr error
-	for _, target := range install {
+	for _, target := range targets {
 		if interrupted.Load() {
 			applyErr = fmt.Errorf("apply interrupted by signal")
 			break
 		}
-		if target.present {
-			applyErr = atomicWrite(target.path, target.data, target.path)
+		if target.Present {
+			applyErr = atomicWrite(target.Path, target.Data, target.Path)
 		} else {
-			applyErr = atomicRemove(target.path)
+			applyErr = atomicRemove(target.Path)
 		}
 		if applyErr != nil {
 			break

@@ -1,0 +1,6 @@
+prefix_rule(
+    pattern = ["git", "status"],
+    decision = "allow",
+    match = ["git status"],
+    not_match = ["git diff"],
+)

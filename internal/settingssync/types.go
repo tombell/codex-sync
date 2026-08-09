@@ -26,11 +26,19 @@ func LiveLayout() (Layout, error) {
 	return Layout{Home: home, AppPath: "/Applications/ChatGPT.app"}, nil
 }
 
-func (l Layout) Config() string { return filepath.Join(l.Home, ".codex", "config.toml") }
+func (l Layout) Config() string    { return filepath.Join(l.Home, ".codex", "config.toml") }
+func (l Layout) CodexHome() string { return filepath.Join(l.Home, ".codex") }
 func (l Layout) GlobalState() string {
 	return filepath.Join(l.Home, ".codex", ".codex-global-state.json")
 }
 func (l Layout) Keybindings() string { return filepath.Join(l.Home, ".codex", "keybindings.json") }
+func (l Layout) Rules() string       { return filepath.Join(l.Home, ".codex", "rules") }
+func (l Layout) Rule(name string) string {
+	return filepath.Join(l.Rules(), name)
+}
+func (l Layout) Profile(name string) string {
+	return filepath.Join(l.CodexHome(), name)
+}
 func (l Layout) Backups() string {
 	return filepath.Join(l.Home, ".local", "state", "codex-sync", "backups")
 }
@@ -126,9 +134,11 @@ func (keybindings *Keybindings) UnmarshalJSON(data []byte) error {
 }
 
 type Preferences struct {
-	ConfigToml  map[string]Entry `json:"config_toml"`
-	GlobalState map[string]Entry `json:"global_state"`
-	Keybindings Keybindings      `json:"keybindings"`
+	ConfigToml     map[string]Entry            `json:"config_toml"`
+	ConfigProfiles map[string]map[string]Entry `json:"config_profiles"`
+	GlobalState    map[string]Entry            `json:"global_state"`
+	Keybindings    Keybindings                 `json:"keybindings"`
+	Rules          map[string]string           `json:"rules"`
 }
 
 type Audit struct {

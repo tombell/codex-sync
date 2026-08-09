@@ -1,0 +1,2 @@
+model = "target-local-model"
+auth_token = "TARGET_LOCAL_PROFILE_AUTH_MUST_STAY"
