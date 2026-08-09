@@ -11,6 +11,8 @@ import (
 	"testing"
 )
 
+const testToolVersion = "1.2.3"
+
 func TestSSHExportCommandUsesSelectedUserAndRemoteLoginPath(t *testing.T) {
 	command := sshExportCommand(context.Background(), "source-mac", "alice")
 	want := []string{
@@ -28,9 +30,12 @@ func TestSSHExportCommandUsesSelectedUserAndRemoteLoginPath(t *testing.T) {
 func TestNewRunnerUsesEnvironmentSSHUser(t *testing.T) {
 	t.Setenv("USER", "alice")
 	var output bytes.Buffer
-	runner := NewRunner(Layout{}, &output, &output)
+	runner := NewRunner(Layout{}, &output, &output, testToolVersion)
 	if runner.SSHUser != "alice" {
 		t.Fatalf("SSH user = %q, want %q", runner.SSHUser, "alice")
+	}
+	if runner.Version != testToolVersion {
+		t.Fatalf("CLI version = %q, want %q", runner.Version, testToolVersion)
 	}
 }
 
@@ -143,7 +148,7 @@ func snapshot(t *testing.T, layout Layout) map[string][]byte {
 
 func proposed(t *testing.T, environment fixtureEnvironment) Preferences {
 	t.Helper()
-	bundle, err := buildBundle(environment.source)
+	bundle, err := buildBundle(environment.source, testToolVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +156,7 @@ func proposed(t *testing.T, environment fixtureEnvironment) Preferences {
 	if err != nil {
 		t.Fatal(err)
 	}
-	content, err := validateBundle(bundle, app)
+	content, err := validateBundle(bundle, app, testToolVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +165,7 @@ func proposed(t *testing.T, environment fixtureEnvironment) Preferences {
 
 func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	environment := newFixtureEnvironment(t)
-	bundle, err := buildBundle(environment.source)
+	bundle, err := buildBundle(environment.source, testToolVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,12 +246,33 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	}
 }
 
+func TestBundleUsesAndValidatesCLIVersion(t *testing.T) {
+	environment := newFixtureEnvironment(t)
+	bundle, err := buildBundle(environment.source, testToolVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Manifest.ToolVersion != testToolVersion {
+		t.Fatalf("manifest tool version = %q, want %q", bundle.Manifest.ToolVersion, testToolVersion)
+	}
+	app, err := getAppInfo(environment.target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateBundle(bundle, app, testToolVersion); err != nil {
+		t.Fatalf("matching CLI version was rejected: %v", err)
+	}
+	if _, err := validateBundle(bundle, app, "1.2.4"); err == nil || !strings.Contains(err.Error(), `source "1.2.3", local "1.2.4"`) {
+		t.Fatalf("mismatched CLI version error = %v", err)
+	}
+}
+
 func TestBundleWithoutKeybindingsHasValidAuditSchema(t *testing.T) {
 	environment := newFixtureEnvironment(t)
 	if err := os.Remove(environment.source.Keybindings()); err != nil {
 		t.Fatal(err)
 	}
-	bundle, err := buildBundle(environment.source)
+	bundle, err := buildBundle(environment.source, testToolVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +288,7 @@ func TestBundleWithoutKeybindingsHasValidAuditSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := validateBundle(decoded, app); err != nil {
+	if _, err := validateBundle(decoded, app, testToolVersion); err != nil {
 		t.Fatalf("bundle without keybindings failed validation: %v", err)
 	}
 }
@@ -270,12 +296,12 @@ func TestBundleWithoutKeybindingsHasValidAuditSchema(t *testing.T) {
 func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 	environment := newFixtureEnvironment(t)
 	before := snapshot(t, environment.target)
-	bundle, err := buildBundle(environment.source)
+	bundle, err := buildBundle(environment.source, testToolVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	runner := NewRunner(environment.target, &stdout, &stderr)
+	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
 	runner.Fetch = func(string, string) (Bundle, error) { return bundle, nil }
 	runner.AppRunning = func() bool { return true }
 	if code := runner.Run([]string{"pull", "source-mac", "--dry-run"}); code != 0 {
@@ -291,7 +317,7 @@ func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 
 func TestUnknownBundleKeyAndKeybindingAreRejected(t *testing.T) {
 	environment := newFixtureEnvironment(t)
-	bundle, err := buildBundle(environment.source)
+	bundle, err := buildBundle(environment.source, testToolVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +325,7 @@ func TestUnknownBundleKeyAndKeybindingAreRejected(t *testing.T) {
 	content, _ := canonicalJSON(bundle.Content)
 	bundle.Manifest.ContentSHA256 = sha256Bytes(content)
 	app, _ := getAppInfo(environment.target)
-	if _, err := validateBundle(bundle, app); err == nil || !strings.Contains(err.Error(), "unknown") {
+	if _, err := validateBundle(bundle, app, testToolVersion); err == nil || !strings.Contains(err.Error(), "unknown") {
 		t.Fatalf("unknown bundle key was accepted: %v", err)
 	}
 
@@ -308,25 +334,25 @@ func TestUnknownBundleKeyAndKeybindingAreRejected(t *testing.T) {
 		t.Fatal("unknown keybinding command was accepted")
 	}
 
-	bundle, err = buildBundle(environment.source)
+	bundle, err = buildBundle(environment.source, testToolVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
 	bundle.Content.Preferences.Rules["../invalid.rules"] = ""
 	content, _ = canonicalJSON(bundle.Content)
 	bundle.Manifest.ContentSHA256 = sha256Bytes(content)
-	if _, err := validateBundle(bundle, app); err == nil {
+	if _, err := validateBundle(bundle, app, testToolVersion); err == nil {
 		t.Fatal("unsafe rule filename was accepted")
 	}
 
-	bundle, err = buildBundle(environment.source)
+	bundle, err = buildBundle(environment.source, testToolVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
 	bundle.Content.Preferences.ConfigToml["desktop.selected-avatar-id"] = Entry{Present: true, Value: "downloaded-avatar"}
 	content, _ = canonicalJSON(bundle.Content)
 	bundle.Manifest.ContentSHA256 = sha256Bytes(content)
-	if _, err := validateBundle(bundle, app); err == nil {
+	if _, err := validateBundle(bundle, app, testToolVersion); err == nil {
 		t.Fatal("non-built-in avatar was accepted")
 	}
 }
@@ -337,12 +363,12 @@ func TestUnknownLocalKeybindingBlocksNormalPull(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := snapshot(t, environment.target)
-	bundle, err := buildBundle(environment.source)
+	bundle, err := buildBundle(environment.source, testToolVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	runner := NewRunner(environment.target, &stdout, &stderr)
+	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
 	runner.Fetch = func(string, string) (Bundle, error) { return bundle, nil }
 	runner.AppRunning = func() bool { return false }
 	if code := runner.Run([]string{"pull", "source-mac"}); code == 0 || !strings.Contains(stderr.String(), "unknown commands") {

@@ -23,6 +23,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "codex-sync: %v\n", err)
 		return 1
 	}
-	runner := settingssync.NewRunner(layout, stdout, stderr)
+	runner := settingssync.NewRunner(layout, stdout, stderr, Version)
 	return runner.Run(args)
 }

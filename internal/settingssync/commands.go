@@ -20,9 +20,10 @@ type Runner struct {
 	Fetch      func(string, string) (Bundle, error)
 	AppRunning func() bool
 	SSHUser    string
+	Version    string
 }
 
-func NewRunner(layout Layout, stdout, stderr io.Writer) Runner {
+func NewRunner(layout Layout, stdout, stderr io.Writer, version string) Runner {
 	return Runner{
 		Layout:     layout,
 		Stdout:     stdout,
@@ -30,6 +31,7 @@ func NewRunner(layout Layout, stdout, stderr io.Writer) Runner {
 		Fetch:      fetchBundle,
 		AppRunning: chatgptIsRunning,
 		SSHUser:    os.Getenv("USER"),
+		Version:    version,
 	}
 }
 
@@ -57,7 +59,7 @@ func (runner Runner) Run(args []string) int {
 			break
 		}
 		var bundle Bundle
-		bundle, runErr = buildBundle(runner.Layout)
+		bundle, runErr = buildBundle(runner.Layout, runner.Version)
 		if runErr == nil {
 			var data []byte
 			data, runErr = canonicalJSON(bundle)
@@ -173,7 +175,7 @@ func (runner Runner) runPull(target sshTarget, dryRun bool) (int, error) {
 	if err != nil {
 		return 1, err
 	}
-	content, err := validateBundle(bundle, app)
+	content, err := validateBundle(bundle, app, runner.Version)
 	if err != nil {
 		return 1, err
 	}
@@ -216,7 +218,7 @@ func (runner Runner) runStatus(target sshTarget) (int, error) {
 	if err != nil {
 		return 1, err
 	}
-	content, err := validateBundle(bundle, app)
+	content, err := validateBundle(bundle, app, runner.Version)
 	if err != nil {
 		return 1, err
 	}
