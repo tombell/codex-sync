@@ -2,6 +2,7 @@ package settingssync
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -9,6 +10,20 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestSSHExportCommandUsesRemoteLoginPath(t *testing.T) {
+	command := sshExportCommand(context.Background(), "pyra")
+	want := []string{
+		"ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "pyra",
+		`exec "$SHELL" -lc 'exec codex-sync export'`,
+	}
+	if !reflect.DeepEqual(command.Args, want) {
+		t.Fatalf("SSH command = %#v, want %#v", command.Args, want)
+	}
+	if strings.Contains(strings.Join(command.Args, " "), "/Users/") {
+		t.Fatalf("SSH command contains a hardcoded user path: %#v", command.Args)
+	}
+}
 
 type fixtureEnvironment struct {
 	source Layout

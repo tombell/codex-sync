@@ -14,12 +14,7 @@ Install `codex-sync` from the `tombell/formulae` tap on Pyra and each target Mac
 brew install tombell/formulae/codex-sync
 ```
 
-Remote pulls expect the Pyra binary at `/Users/tombell/.local/bin/codex-sync`. Link the Homebrew installation there on Pyra:
-
-```sh
-mkdir -p ~/.local/bin
-ln -sf "$(brew --prefix)/bin/codex-sync" ~/.local/bin/codex-sync
-```
+Remote pulls resolve `codex-sync` from Pyra's login-shell `PATH`. A standard Homebrew shell setup makes the installed binary available without an additional symlink.
 
 Check that the same version is installed on every Mac with `codex-sync --version`.
 

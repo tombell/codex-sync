@@ -274,7 +274,7 @@ func fetchBundle(host string) (Bundle, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, "/Users/tombell/.local/bin/codex-sync", "export")
+	command := sshExportCommand(ctx, host)
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		return Bundle{}, fmt.Errorf("prepare SSH to Pyra: %w", err)
@@ -317,6 +317,11 @@ func fetchBundle(host string) (Bundle, error) {
 		return Bundle{}, err
 	}
 	return decodeBundle(staged)
+}
+
+func sshExportCommand(ctx context.Context, host string) *exec.Cmd {
+	const remoteCommand = `exec "$SHELL" -lc 'exec codex-sync export'`
+	return exec.CommandContext(ctx, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, remoteCommand)
 }
 
 func chatgptIsRunning() bool {
