@@ -102,7 +102,7 @@ func readKeybindings(layout Layout, strict bool) (Keybindings, []string, error) 
 		return Keybindings{}, nil, err
 	}
 	if !present {
-		return Keybindings{Present: false, Bindings: []Keybinding{}}, nil, nil
+		return Keybindings{Present: false, Bindings: []Keybinding{}}, []string{}, nil
 	}
 	bindings, unknown, err := validateKeybindings(data, strict)
 	return Keybindings{Present: true, Bindings: bindings}, unknown, err

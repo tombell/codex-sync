@@ -133,6 +133,32 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	}
 }
 
+func TestBundleWithoutKeybindingsHasValidAuditSchema(t *testing.T) {
+	environment := newFixtureEnvironment(t)
+	if err := os.Remove(environment.source.Keybindings()); err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := buildBundle(environment.source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serialized, err := canonicalJSON(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := decodeBundle(serialized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := getAppInfo(environment.target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateBundle(decoded, app); err != nil {
+		t.Fatalf("bundle without keybindings failed validation: %v", err)
+	}
+}
+
 func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 	environment := newFixtureEnvironment(t)
 	before := snapshot(t, environment.target)
