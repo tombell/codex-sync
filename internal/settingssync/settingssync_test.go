@@ -160,6 +160,12 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	if subagentReasoning.Value != "xhigh" {
 		t.Fatalf("unexpected default subagent reasoning effort: %#v", subagentReasoning)
 	}
+	if dockIcon := bundle.Content.Preferences.ConfigToml["desktop.dock-icon-preference"]; dockIcon.Value != "codex-system" {
+		t.Fatalf("unexpected dock icon preference: %#v", dockIcon)
+	}
+	if avatar := bundle.Content.Preferences.ConfigToml["desktop.selected-avatar-id"]; avatar.Value != "seedy" {
+		t.Fatalf("unexpected selected avatar: %#v", avatar)
+	}
 	profileModel := bundle.Content.Preferences.ConfigProfiles["review.config.toml"]["model"]
 	if profileModel.Value != "fixture-profile-model" {
 		t.Fatalf("unexpected profile model: %#v", profileModel)
@@ -261,6 +267,17 @@ func TestUnknownBundleKeyAndKeybindingAreRejected(t *testing.T) {
 	bundle.Manifest.ContentSHA256 = sha256Bytes(content)
 	if _, err := validateBundle(bundle, app); err == nil {
 		t.Fatal("unsafe rule filename was accepted")
+	}
+
+	bundle, err = buildBundle(environment.source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle.Content.Preferences.ConfigToml["desktop.selected-avatar-id"] = Entry{Present: true, Value: "downloaded-avatar"}
+	content, _ = canonicalJSON(bundle.Content)
+	bundle.Manifest.ContentSHA256 = sha256Bytes(content)
+	if _, err := validateBundle(bundle, app); err == nil {
+		t.Fatal("non-built-in avatar was accepted")
 	}
 }
 

@@ -84,6 +84,8 @@ var (
 		stringSpec("desktop.reduced-motion-preference", "system", "on", "off"),
 		boolSpec("desktop.useFontSmoothing"),
 		boolSpec("desktop.usePointerCursors"),
+		stringSpec("desktop.dock-icon-preference", "app-default", "codex-system"),
+		stringSpec("desktop.selected-avatar-id", "codex", "dewey", "fireball", "hoots", "rocky", "seedy", "stacky", "bsod", "null-signal"),
 		patternSpec("desktop.appearanceLightChromeTheme.accent", textPattern),
 		numberSpec("desktop.appearanceLightChromeTheme.contrast", 0, 100),
 		patternSpec("desktop.appearanceLightChromeTheme.ink", textPattern),
@@ -122,10 +124,8 @@ var (
 
 	knownExcludedDesktopPaths = stringSet(
 		"desktop.dictationDictionary",
-		"desktop.dock-icon-preference",
 		"desktop.avatar-overlay-mascot-width-px",
 		"desktop.enabled-reasoning-efforts",
-		"desktop.selected-avatar-id",
 		"desktop.browser-download-directory",
 	)
 

@@ -60,6 +60,8 @@ Settings are collected from these files:
 
 Unrelated values in the config, profile, and global-state files are left alone. Missing allowlisted values are also synced, so a target override can be reset to the application default. Rules are synced exactly: target-only `.rules` files are removed, while unrelated files in the rules directory are untouched.
 
+Dock icon preference is limited to the app's canonical icon modes. Selected avatar IDs are limited to built-in companions; downloaded or custom avatar assets are never included.
+
 Auth, chats, sessions, history, projects, device state, browser data, permission profiles, skills, and downloaded assets are not synced.
 
 ## Safety
