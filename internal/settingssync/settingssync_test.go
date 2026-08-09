@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 const testToolVersion = "1.2.3"
@@ -43,15 +44,19 @@ func TestSSHExportCommandUsesRemoteCodexHomeEnvironmentByDefault(t *testing.T) {
 
 func TestSSHExportCommandAllowsRemoteLauncherOverrides(t *testing.T) {
 	options := remoteExportOptions{
-		AppPath: defaultAppPath,
-		Binary:  "/Applications/Codex Tools/codex-sync",
-		Shell:   "/bin/zsh",
+		AppPath:           defaultAppPath,
+		Binary:            "/Applications/Codex Tools/codex-sync",
+		Shell:             "/bin/zsh",
+		SSHConnectTimeout: 25 * time.Second,
 	}
 	command := sshExportCommand(context.Background(), "source-mac", "alice", options)
 	innerCommand := "exec '/Applications/Codex Tools/codex-sync' --app-path '/Applications/ChatGPT.app' export"
 	wantRemoteCommand := "exec '/bin/zsh' -lc " + quoteShellArgument(innerCommand)
 	if got := command.Args[len(command.Args)-1]; got != wantRemoteCommand {
 		t.Fatalf("remote command = %q, want %q", got, wantRemoteCommand)
+	}
+	if got, want := command.Args[5], "ConnectTimeout=25"; got != want {
+		t.Fatalf("SSH timeout option = %q, want %q", got, want)
 	}
 }
 
@@ -80,6 +85,9 @@ func TestNewRunnerUsesEnvironmentSSHUser(t *testing.T) {
 	}
 	if runner.SourceBinary != defaultSourceBinary {
 		t.Fatalf("source binary = %q, want %q", runner.SourceBinary, defaultSourceBinary)
+	}
+	if runner.SSHConnectTimeout != defaultSSHConnectTimeout || runner.ExportTimeout != defaultExportTimeout {
+		t.Fatalf("default timeouts = %s/%s, want %s/%s", runner.SSHConnectTimeout, runner.ExportTimeout, defaultSSHConnectTimeout, defaultExportTimeout)
 	}
 }
 
@@ -391,6 +399,8 @@ func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 	runner.SourceCodexHome = "/Users/remote/.codex-preview"
 	runner.SourceBinary = "/opt/homebrew/bin/codex-sync"
 	runner.SourceShell = "/bin/zsh"
+	runner.SSHConnectTimeout = 25 * time.Second
+	runner.ExportTimeout = 2 * time.Minute
 	runner.Fetch = func(_, _ string, options remoteExportOptions) (Bundle, error) {
 		if options.AppPath != environment.target.AppPath {
 			t.Fatalf("fetch app path = %q, want %q", options.AppPath, environment.target.AppPath)
@@ -400,6 +410,9 @@ func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 		}
 		if options.Binary != runner.SourceBinary || options.Shell != runner.SourceShell {
 			t.Fatalf("fetch launcher = %#v, want binary %q shell %q", options, runner.SourceBinary, runner.SourceShell)
+		}
+		if options.SSHConnectTimeout != runner.SSHConnectTimeout || options.ExportTimeout != runner.ExportTimeout {
+			t.Fatalf("fetch timeouts = %#v, want %s/%s", options, runner.SSHConnectTimeout, runner.ExportTimeout)
 		}
 		return bundle, nil
 	}

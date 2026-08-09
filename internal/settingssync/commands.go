@@ -10,43 +10,54 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 )
 
 type Runner struct {
-	Layout          Layout
-	Stdout          io.Writer
-	Stderr          io.Writer
-	Fetch           func(string, string, remoteExportOptions) (Bundle, error)
-	AppRunning      func(string) (bool, error)
-	SSHUser         string
-	Version         string
-	SourceCodexHome string
-	SourceBinary    string
-	SourceShell     string
+	Layout            Layout
+	Stdout            io.Writer
+	Stderr            io.Writer
+	Fetch             func(string, string, remoteExportOptions) (Bundle, error)
+	AppRunning        func(string) (bool, error)
+	SSHUser           string
+	Version           string
+	SourceCodexHome   string
+	SourceBinary      string
+	SourceShell       string
+	SSHConnectTimeout time.Duration
+	ExportTimeout     time.Duration
 }
 
-const defaultSourceBinary = "codex-sync"
+const (
+	defaultSourceBinary      = "codex-sync"
+	defaultSSHConnectTimeout = 10 * time.Second
+	defaultExportTimeout     = time.Minute
+)
 
 type remoteExportOptions struct {
-	AppPath   string
-	CodexHome string
-	Binary    string
-	Shell     string
+	AppPath           string
+	CodexHome         string
+	Binary            string
+	Shell             string
+	SSHConnectTimeout time.Duration
+	ExportTimeout     time.Duration
 }
 
 func NewRunner(layout Layout, stdout, stderr io.Writer, version string) Runner {
 	return Runner{
-		Layout:       layout,
-		Stdout:       stdout,
-		Stderr:       stderr,
-		Fetch:        fetchBundle,
-		AppRunning:   processIsRunning,
-		SSHUser:      os.Getenv("USER"),
-		Version:      version,
-		SourceBinary: defaultSourceBinary,
+		Layout:            layout,
+		Stdout:            stdout,
+		Stderr:            stderr,
+		Fetch:             fetchBundle,
+		AppRunning:        processIsRunning,
+		SSHUser:           os.Getenv("USER"),
+		Version:           version,
+		SourceBinary:      defaultSourceBinary,
+		SSHConnectTimeout: defaultSSHConnectTimeout,
+		ExportTimeout:     defaultExportTimeout,
 	}
 }
 
@@ -335,15 +346,17 @@ func printUnknownReport(writer io.Writer, label string, audit Audit) {
 
 func (runner Runner) remoteExportOptions() remoteExportOptions {
 	return remoteExportOptions{
-		AppPath:   runner.Layout.AppPath,
-		CodexHome: runner.SourceCodexHome,
-		Binary:    runner.SourceBinary,
-		Shell:     runner.SourceShell,
+		AppPath:           runner.Layout.AppPath,
+		CodexHome:         runner.SourceCodexHome,
+		Binary:            runner.SourceBinary,
+		Shell:             runner.SourceShell,
+		SSHConnectTimeout: runner.SSHConnectTimeout,
+		ExportTimeout:     runner.ExportTimeout,
 	}
 }
 
 func fetchBundle(host, user string, options remoteExportOptions) (Bundle, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), options.exportTimeout())
 	defer cancel()
 	command := sshExportCommand(ctx, host, user, options)
 	stdout, err := command.StdoutPipe()
@@ -401,7 +414,22 @@ func sshExportCommand(ctx context.Context, host, user string, options remoteExpo
 		shell = quoteShellArgument(options.Shell)
 	}
 	remoteCommand := "exec " + shell + " -lc " + quoteShellArgument(innerCommand)
-	return exec.CommandContext(ctx, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-l", user, host, remoteCommand)
+	connectTimeout := strconv.FormatInt(int64(options.sshConnectTimeout()/time.Second), 10)
+	return exec.CommandContext(ctx, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout="+connectTimeout, "-l", user, host, remoteCommand)
+}
+
+func (options remoteExportOptions) sshConnectTimeout() time.Duration {
+	if options.SSHConnectTimeout > 0 {
+		return options.SSHConnectTimeout
+	}
+	return defaultSSHConnectTimeout
+}
+
+func (options remoteExportOptions) exportTimeout() time.Duration {
+	if options.ExportTimeout > 0 {
+		return options.ExportTimeout
+	}
+	return defaultExportTimeout
 }
 
 func quoteShellArgument(argument string) string {
@@ -458,6 +486,8 @@ Global options:
   --source-codex-home <path> Source configuration root for pull/status.
   --source-binary <path>     Remote codex-sync executable for pull/status.
   --source-shell <path>      Remote login shell for pull/status.
+  --ssh-connect-timeout <d>  SSH connection timeout (default 10s).
+  --export-timeout <d>       Total source export timeout (default 1m).
 
 SSH user defaults to $USER. Override it with --user <user> or -u <user>.`)
 }

@@ -18,6 +18,8 @@ Remote pulls resolve `codex-sync` from the source Mac's login-shell `PATH`. A st
 
 For a nonstandard remote installation, use `--source-binary <absolute-path>`. The remote login shell defaults to `$SHELL`; override it with `--source-shell <absolute-path>`.
 
+SSH connections time out after `10s` and the complete remote export after `1m` by default. Override them with `--ssh-connect-timeout <duration>` and `--export-timeout <duration>`; values must be whole seconds from `1s` to `1h`.
+
 SSH uses the local `$USER` as the remote login name by default. If the source uses a different account, pass `--user <user>` (or `-u <user>`).
 
 The application bundle defaults to `/Applications/ChatGPT.app`. Override it with `--app-path <absolute-path>`. Pulls and status checks forward the override to the source Mac, so the application must be at that path on both Macs.
@@ -50,6 +52,7 @@ codex-sync pull source-mac --codex-home /Volumes/settings/codex \
   --source-codex-home /Users/other-user/.codex-preview
 codex-sync status source-mac --source-binary /opt/homebrew/bin/codex-sync \
   --source-shell /bin/zsh
+codex-sync status source-mac --ssh-connect-timeout 20s --export-timeout 2m
 codex-sync audit                             # exit 2 for unknown settings or commands
 codex-sync rollback                          # restore the latest completed backup
 ```

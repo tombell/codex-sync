@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRunVersion(t *testing.T) {
@@ -49,6 +50,8 @@ func TestParseGlobalArgsAcceptsSourceOverrides(t *testing.T) {
 		"--source-codex-home=/Users/remote/.codex-preview",
 		"--source-binary", "/opt/homebrew/bin/codex-sync",
 		"--source-shell=/bin/zsh",
+		"--ssh-connect-timeout", "25s",
+		"--export-timeout=2m",
 	}
 	remaining, options, err := parseGlobalArgs(args)
 	if err != nil {
@@ -69,6 +72,12 @@ func TestParseGlobalArgsAcceptsSourceOverrides(t *testing.T) {
 	if want := "/bin/zsh"; options.SourceShell != want {
 		t.Fatalf("source shell = %q, want %q", options.SourceShell, want)
 	}
+	if want := 25 * time.Second; options.SSHConnectTimeout != want {
+		t.Fatalf("SSH connect timeout = %s, want %s", options.SSHConnectTimeout, want)
+	}
+	if want := 2 * time.Minute; options.ExportTimeout != want {
+		t.Fatalf("export timeout = %s, want %s", options.ExportTimeout, want)
+	}
 }
 
 func TestParseGlobalArgsRejectsInvalidPaths(t *testing.T) {
@@ -80,6 +89,11 @@ func TestParseGlobalArgsRejectsInvalidPaths(t *testing.T) {
 		{"pull", "source-mac", "--source-codex-home"},
 		{"pull", "source-mac", "--source-binary", "bin/codex-sync"},
 		{"pull", "source-mac", "--source-shell"},
+		{"pull", "source-mac", "--ssh-connect-timeout", "500ms"},
+		{"pull", "source-mac", "--ssh-connect-timeout", "2h"},
+		{"pull", "source-mac", "--export-timeout=soon"},
+		{"pull", "source-mac", "--export-timeout"},
+		{"pull", "source-mac", "--export-timeout", "1m", "--export-timeout=2m"},
 	} {
 		if _, _, err := parseGlobalArgs(args); err == nil || !strings.Contains(err.Error(), "--") {
 			t.Fatalf("parseGlobalArgs(%q) error = %v", args, err)
@@ -87,7 +101,7 @@ func TestParseGlobalArgsRejectsInvalidPaths(t *testing.T) {
 	}
 }
 
-func TestRunRejectsSourceOverridesForLocalCommand(t *testing.T) {
+func TestRunRejectsRemoteOptionsForLocalCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"audit", "--source-binary", "/opt/homebrew/bin/codex-sync"}, &stdout, &stderr)
 	if code == 0 || !strings.Contains(stderr.String(), "only valid with pull or status") {
