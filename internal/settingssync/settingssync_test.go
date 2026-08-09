@@ -14,10 +14,16 @@ import (
 const testToolVersion = "1.2.3"
 
 func TestSSHExportCommandUsesSelectedUserAndRemoteLoginPath(t *testing.T) {
-	command := sshExportCommand(context.Background(), "source-mac", "alice", "/Applications/ChatGPT Preview.app", "/Volumes/settings/codex-preview")
+	options := remoteExportOptions{
+		AppPath:   "/Applications/ChatGPT Preview.app",
+		CodexHome: "/Volumes/settings/codex-preview",
+		Binary:    defaultSourceBinary,
+	}
+	command := sshExportCommand(context.Background(), "source-mac", "alice", options)
+	innerCommand := "exec 'codex-sync' --app-path '/Applications/ChatGPT Preview.app' --codex-home '/Volumes/settings/codex-preview' export"
 	want := []string{
 		"ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-l", "alice", "source-mac",
-		`exec "$SHELL" -lc 'exec codex-sync --app-path '"'"'/Applications/ChatGPT Preview.app'"'"' --codex-home '"'"'/Volumes/settings/codex-preview'"'"' export'`,
+		`exec "$SHELL" -lc ` + quoteShellArgument(innerCommand),
 	}
 	if !reflect.DeepEqual(command.Args, want) {
 		t.Fatalf("SSH command = %#v, want %#v", command.Args, want)
@@ -28,9 +34,24 @@ func TestSSHExportCommandUsesSelectedUserAndRemoteLoginPath(t *testing.T) {
 }
 
 func TestSSHExportCommandUsesRemoteCodexHomeEnvironmentByDefault(t *testing.T) {
-	command := sshExportCommand(context.Background(), "source-mac", "alice", defaultAppPath, "")
+	options := remoteExportOptions{AppPath: defaultAppPath, Binary: defaultSourceBinary}
+	command := sshExportCommand(context.Background(), "source-mac", "alice", options)
 	if strings.Contains(command.Args[len(command.Args)-1], "--codex-home") {
 		t.Fatalf("SSH command overrides remote Codex home by default: %#v", command.Args)
+	}
+}
+
+func TestSSHExportCommandAllowsRemoteLauncherOverrides(t *testing.T) {
+	options := remoteExportOptions{
+		AppPath: defaultAppPath,
+		Binary:  "/Applications/Codex Tools/codex-sync",
+		Shell:   "/bin/zsh",
+	}
+	command := sshExportCommand(context.Background(), "source-mac", "alice", options)
+	innerCommand := "exec '/Applications/Codex Tools/codex-sync' --app-path '/Applications/ChatGPT.app' export"
+	wantRemoteCommand := "exec '/bin/zsh' -lc " + quoteShellArgument(innerCommand)
+	if got := command.Args[len(command.Args)-1]; got != wantRemoteCommand {
+		t.Fatalf("remote command = %q, want %q", got, wantRemoteCommand)
 	}
 }
 
@@ -56,6 +77,9 @@ func TestNewRunnerUsesEnvironmentSSHUser(t *testing.T) {
 	}
 	if runner.Version != testToolVersion {
 		t.Fatalf("CLI version = %q, want %q", runner.Version, testToolVersion)
+	}
+	if runner.SourceBinary != defaultSourceBinary {
+		t.Fatalf("source binary = %q, want %q", runner.SourceBinary, defaultSourceBinary)
 	}
 }
 
@@ -365,12 +389,17 @@ func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
 	runner.SourceCodexHome = "/Users/remote/.codex-preview"
-	runner.Fetch = func(_, _, appPath, codexHome string) (Bundle, error) {
-		if appPath != environment.target.AppPath {
-			t.Fatalf("fetch app path = %q, want %q", appPath, environment.target.AppPath)
+	runner.SourceBinary = "/opt/homebrew/bin/codex-sync"
+	runner.SourceShell = "/bin/zsh"
+	runner.Fetch = func(_, _ string, options remoteExportOptions) (Bundle, error) {
+		if options.AppPath != environment.target.AppPath {
+			t.Fatalf("fetch app path = %q, want %q", options.AppPath, environment.target.AppPath)
 		}
-		if codexHome != runner.SourceCodexHome {
-			t.Fatalf("fetch source Codex home = %q, want %q", codexHome, runner.SourceCodexHome)
+		if options.CodexHome != runner.SourceCodexHome {
+			t.Fatalf("fetch source Codex home = %q, want %q", options.CodexHome, runner.SourceCodexHome)
+		}
+		if options.Binary != runner.SourceBinary || options.Shell != runner.SourceShell {
+			t.Fatalf("fetch launcher = %#v, want binary %q shell %q", options, runner.SourceBinary, runner.SourceShell)
 		}
 		return bundle, nil
 	}
@@ -395,7 +424,7 @@ func TestPullChecksSelectedBundleExecutableBeforeApplying(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
-	runner.Fetch = func(string, string, string, string) (Bundle, error) { return bundle, nil }
+	runner.Fetch = func(string, string, remoteExportOptions) (Bundle, error) { return bundle, nil }
 	runner.AppRunning = func(executable string) (bool, error) {
 		if got, want := executable, "CodexFixture"; got != want {
 			t.Fatalf("checked executable = %q, want %q", got, want)
@@ -464,7 +493,7 @@ func TestUnknownLocalKeybindingBlocksNormalPull(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
-	runner.Fetch = func(string, string, string, string) (Bundle, error) { return bundle, nil }
+	runner.Fetch = func(string, string, remoteExportOptions) (Bundle, error) { return bundle, nil }
 	runner.AppRunning = func(string) (bool, error) { return false, nil }
 	if code := runner.Run([]string{"pull", "source-mac"}); code == 0 || !strings.Contains(stderr.String(), "unknown commands") {
 		t.Fatalf("unknown local command did not block pull: code=%d stderr=%s", code, stderr.String())

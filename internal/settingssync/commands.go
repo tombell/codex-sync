@@ -19,22 +19,34 @@ type Runner struct {
 	Layout          Layout
 	Stdout          io.Writer
 	Stderr          io.Writer
-	Fetch           func(string, string, string, string) (Bundle, error)
+	Fetch           func(string, string, remoteExportOptions) (Bundle, error)
 	AppRunning      func(string) (bool, error)
 	SSHUser         string
 	Version         string
 	SourceCodexHome string
+	SourceBinary    string
+	SourceShell     string
+}
+
+const defaultSourceBinary = "codex-sync"
+
+type remoteExportOptions struct {
+	AppPath   string
+	CodexHome string
+	Binary    string
+	Shell     string
 }
 
 func NewRunner(layout Layout, stdout, stderr io.Writer, version string) Runner {
 	return Runner{
-		Layout:     layout,
-		Stdout:     stdout,
-		Stderr:     stderr,
-		Fetch:      fetchBundle,
-		AppRunning: processIsRunning,
-		SSHUser:    os.Getenv("USER"),
-		Version:    version,
+		Layout:       layout,
+		Stdout:       stdout,
+		Stderr:       stderr,
+		Fetch:        fetchBundle,
+		AppRunning:   processIsRunning,
+		SSHUser:      os.Getenv("USER"),
+		Version:      version,
+		SourceBinary: defaultSourceBinary,
 	}
 }
 
@@ -180,7 +192,7 @@ func parseRemoteArgs(args []string, defaultUser string, allowDryRun bool) (sshTa
 }
 
 func (runner Runner) runPull(target sshTarget, dryRun bool) (int, error) {
-	bundle, err := runner.Fetch(target.Host, target.User, runner.Layout.AppPath, runner.SourceCodexHome)
+	bundle, err := runner.Fetch(target.Host, target.User, runner.remoteExportOptions())
 	if err != nil {
 		return 1, err
 	}
@@ -227,7 +239,7 @@ func (runner Runner) runPull(target sshTarget, dryRun bool) (int, error) {
 }
 
 func (runner Runner) runStatus(target sshTarget) (int, error) {
-	bundle, err := runner.Fetch(target.Host, target.User, runner.Layout.AppPath, runner.SourceCodexHome)
+	bundle, err := runner.Fetch(target.Host, target.User, runner.remoteExportOptions())
 	if err != nil {
 		return 1, err
 	}
@@ -321,10 +333,19 @@ func printUnknownReport(writer io.Writer, label string, audit Audit) {
 	}
 }
 
-func fetchBundle(host, user, appPath, codexHome string) (Bundle, error) {
+func (runner Runner) remoteExportOptions() remoteExportOptions {
+	return remoteExportOptions{
+		AppPath:   runner.Layout.AppPath,
+		CodexHome: runner.SourceCodexHome,
+		Binary:    runner.SourceBinary,
+		Shell:     runner.SourceShell,
+	}
+}
+
+func fetchBundle(host, user string, options remoteExportOptions) (Bundle, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	command := sshExportCommand(ctx, host, user, appPath, codexHome)
+	command := sshExportCommand(ctx, host, user, options)
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		return Bundle{}, fmt.Errorf("prepare SSH to source: %w", err)
@@ -369,13 +390,17 @@ func fetchBundle(host, user, appPath, codexHome string) (Bundle, error) {
 	return decodeBundle(staged)
 }
 
-func sshExportCommand(ctx context.Context, host, user, appPath, codexHome string) *exec.Cmd {
-	innerCommand := "exec codex-sync --app-path " + quoteShellArgument(appPath)
-	if codexHome != "" {
-		innerCommand += " --codex-home " + quoteShellArgument(codexHome)
+func sshExportCommand(ctx context.Context, host, user string, options remoteExportOptions) *exec.Cmd {
+	innerCommand := "exec " + quoteShellArgument(options.Binary) + " --app-path " + quoteShellArgument(options.AppPath)
+	if options.CodexHome != "" {
+		innerCommand += " --codex-home " + quoteShellArgument(options.CodexHome)
 	}
 	innerCommand += " export"
-	remoteCommand := `exec "$SHELL" -lc ` + quoteShellArgument(innerCommand)
+	shell := `"$SHELL"`
+	if options.Shell != "" {
+		shell = quoteShellArgument(options.Shell)
+	}
+	remoteCommand := "exec " + shell + " -lc " + quoteShellArgument(innerCommand)
 	return exec.CommandContext(ctx, "ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-l", user, host, remoteCommand)
 }
 
@@ -431,6 +456,8 @@ Global options:
   --app-path <path>          Application bundle path; forwarded to sources.
   --codex-home <path>        Local Codex configuration root.
   --source-codex-home <path> Source configuration root for pull/status.
+  --source-binary <path>     Remote codex-sync executable for pull/status.
+  --source-shell <path>      Remote login shell for pull/status.
 
 SSH user defaults to $USER. Override it with --user <user> or -u <user>.`)
 }

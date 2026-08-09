@@ -24,8 +24,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "codex-sync %s (%s)\n", Version, Commit)
 		return 0
 	}
-	if options.SourceCodexHome != "" && (len(args) == 0 || (args[0] != "pull" && args[0] != "status")) {
-		fmt.Fprintln(stderr, "codex-sync: --source-codex-home is only valid with pull or status")
+	if options.hasSourceOverrides() && (len(args) == 0 || (args[0] != "pull" && args[0] != "status")) {
+		fmt.Fprintln(stderr, "codex-sync: source overrides are only valid with pull or status")
 		return 1
 	}
 
@@ -39,6 +39,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	runner := settingssync.NewRunner(layout, stdout, stderr, Version)
 	runner.SourceCodexHome = options.SourceCodexHome
+	if options.SourceBinary != "" {
+		runner.SourceBinary = options.SourceBinary
+	}
+	runner.SourceShell = options.SourceShell
 	return runner.Run(args)
 }
 
@@ -46,6 +50,12 @@ type globalOptions struct {
 	AppPath         string
 	CodexHome       string
 	SourceCodexHome string
+	SourceBinary    string
+	SourceShell     string
+}
+
+func (options globalOptions) hasSourceOverrides() bool {
+	return options.SourceCodexHome != "" || options.SourceBinary != "" || options.SourceShell != ""
 }
 
 func parseGlobalArgs(args []string) ([]string, globalOptions, error) {
@@ -58,6 +68,8 @@ func parseGlobalArgs(args []string) ([]string, globalOptions, error) {
 		{"--app-path", &options.AppPath},
 		{"--codex-home", &options.CodexHome},
 		{"--source-codex-home", &options.SourceCodexHome},
+		{"--source-binary", &options.SourceBinary},
+		{"--source-shell", &options.SourceShell},
 	}
 	for index := 0; index < len(args); index++ {
 		argument := args[index]

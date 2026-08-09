@@ -42,11 +42,13 @@ func TestParseGlobalArgsAcceptsAppPathAnywhere(t *testing.T) {
 	}
 }
 
-func TestParseGlobalArgsAcceptsCodexHomeOverrides(t *testing.T) {
+func TestParseGlobalArgsAcceptsSourceOverrides(t *testing.T) {
 	args := []string{
 		"pull", "source-mac",
 		"--codex-home", "/Users/local/.codex-beta",
 		"--source-codex-home=/Users/remote/.codex-preview",
+		"--source-binary", "/opt/homebrew/bin/codex-sync",
+		"--source-shell=/bin/zsh",
 	}
 	remaining, options, err := parseGlobalArgs(args)
 	if err != nil {
@@ -61,6 +63,12 @@ func TestParseGlobalArgsAcceptsCodexHomeOverrides(t *testing.T) {
 	if want := "/Users/remote/.codex-preview"; options.SourceCodexHome != want {
 		t.Fatalf("source Codex home = %q, want %q", options.SourceCodexHome, want)
 	}
+	if want := "/opt/homebrew/bin/codex-sync"; options.SourceBinary != want {
+		t.Fatalf("source binary = %q, want %q", options.SourceBinary, want)
+	}
+	if want := "/bin/zsh"; options.SourceShell != want {
+		t.Fatalf("source shell = %q, want %q", options.SourceShell, want)
+	}
 }
 
 func TestParseGlobalArgsRejectsInvalidPaths(t *testing.T) {
@@ -70,6 +78,8 @@ func TestParseGlobalArgsRejectsInvalidPaths(t *testing.T) {
 		{"audit", "--app-path=/Applications/ChatGPT.app", "--app-path", "/Applications/Other.app"},
 		{"audit", "--codex-home", ".codex-beta"},
 		{"pull", "source-mac", "--source-codex-home"},
+		{"pull", "source-mac", "--source-binary", "bin/codex-sync"},
+		{"pull", "source-mac", "--source-shell"},
 	} {
 		if _, _, err := parseGlobalArgs(args); err == nil || !strings.Contains(err.Error(), "--") {
 			t.Fatalf("parseGlobalArgs(%q) error = %v", args, err)
@@ -77,9 +87,9 @@ func TestParseGlobalArgsRejectsInvalidPaths(t *testing.T) {
 	}
 }
 
-func TestRunRejectsSourceCodexHomeForLocalCommand(t *testing.T) {
+func TestRunRejectsSourceOverridesForLocalCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"audit", "--source-codex-home", "/Users/remote/.codex"}, &stdout, &stderr)
+	code := run([]string{"audit", "--source-binary", "/opt/homebrew/bin/codex-sync"}, &stdout, &stderr)
 	if code == 0 || !strings.Contains(stderr.String(), "only valid with pull or status") {
 		t.Fatalf("code = %d, stderr = %q", code, stderr.String())
 	}
