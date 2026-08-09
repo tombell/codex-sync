@@ -3,7 +3,15 @@ model = "target-model"
 model_reasoning_effort = "low"
 model_reasoning_summary = "none"
 plan_mode_reasoning_effort = "minimal"
+web_search = "disabled"
 auth_token = "TARGET_AUTH_MUST_STAY"
+
+[feedback]
+enabled = true
+
+[agents]
+enabled = false
+interrupt_message = true
 
 [desktop]
 composerEnterBehavior = "enter"

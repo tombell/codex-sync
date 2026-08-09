@@ -139,6 +139,14 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	if reasoning.Value != "high" {
 		t.Fatalf("unexpected model reasoning effort: %#v", reasoning)
 	}
+	webSearch := bundle.Content.Preferences.ConfigToml["web_search"]
+	if webSearch.Value != "live" {
+		t.Fatalf("unexpected web search mode: %#v", webSearch)
+	}
+	agentsEnabled := bundle.Content.Preferences.ConfigToml["agents.enabled"]
+	if agentsEnabled.Value != true {
+		t.Fatalf("unexpected agents enabled preference: %#v", agentsEnabled)
+	}
 	mergeMethod := bundle.Content.Preferences.ConfigToml["desktop.git-pull-request-merge-method"]
 	if mergeMethod.Value != "squash" {
 		t.Fatalf("unexpected pull request merge method: %#v", mergeMethod)

@@ -3,7 +3,15 @@ model = "fixture-model"
 model_reasoning_effort = "high"
 model_reasoning_summary = "detailed"
 plan_mode_reasoning_effort = "medium"
+web_search = "live"
 auth_token = "DECOY_AUTH_CONFIG_VALUE"
+
+[feedback]
+enabled = false
+
+[agents]
+enabled = true
+interrupt_message = false
 
 [projects."/fixture/private-project"]
 trust_level = "trusted"
