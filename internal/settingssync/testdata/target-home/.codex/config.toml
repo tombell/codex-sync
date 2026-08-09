@@ -1,5 +1,8 @@
 personality = "friendly"
-model = "target-model-must-stay"
+model = "target-model"
+model_reasoning_effort = "low"
+model_reasoning_summary = "none"
+plan_mode_reasoning_effort = "minimal"
 auth_token = "TARGET_AUTH_MUST_STAY"
 
 [desktop]

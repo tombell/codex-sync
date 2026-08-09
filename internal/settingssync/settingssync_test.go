@@ -118,7 +118,7 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 		"DECOY_AUTH_CONFIG_VALUE", "DECOY_GIT_INSTRUCTION_VALUE", "DECOY_UNKNOWN_SETTING_VALUE",
 		"DECOY_PROMPT_HISTORY_VALUE", "DECOY_AUTH_GLOBAL_VALUE", "DECOY_SESSION_VALUE",
 		"DECOY_HISTORY_VALUE", "DECOY_INSTALLATION_ID_VALUE", "DECOY_THREAD_VALUE",
-		"fixture-model-must-not-sync", "/fixture/private-project",
+		"/fixture/private-project",
 	} {
 		if bytes.Contains(serialized, []byte(decoy)) {
 			t.Errorf("export leaked decoy %q", decoy)
@@ -130,6 +130,14 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	personality := bundle.Content.Preferences.ConfigToml["personality"]
 	if personality.Value != "pragmatic" {
 		t.Fatalf("unexpected personality: %#v", personality)
+	}
+	model := bundle.Content.Preferences.ConfigToml["model"]
+	if model.Value != "fixture-model" {
+		t.Fatalf("unexpected model: %#v", model)
+	}
+	reasoning := bundle.Content.Preferences.ConfigToml["model_reasoning_effort"]
+	if reasoning.Value != "high" {
+		t.Fatalf("unexpected model reasoning effort: %#v", reasoning)
 	}
 }
 

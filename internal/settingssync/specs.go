@@ -48,6 +48,10 @@ var (
 	idPattern   = regexp.MustCompile(`^[A-Za-z0-9._:/+\-]{1,160}$`)
 
 	configSpecs = []settingSpec{
+		patternSpec("model", idPattern),
+		stringSpec("model_reasoning_effort", "minimal", "low", "medium", "high", "xhigh"),
+		stringSpec("model_reasoning_summary", "auto", "concise", "detailed", "none"),
+		stringSpec("plan_mode_reasoning_effort", "none", "minimal", "low", "medium", "high", "xhigh"),
 		stringSpec("personality", "friendly", "pragmatic", "none"),
 		stringSpec("desktop.composerEnterBehavior", "enter", "cmdIfMultiline", "cmdAlways"),
 		boolSpec("desktop.preventSleepWhileRunning"),
