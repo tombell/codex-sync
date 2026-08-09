@@ -363,5 +363,6 @@ func printUsage(writer io.Writer) {
   codex-sync pull pyra [--dry-run]
   codex-sync status pyra
   codex-sync audit
-  codex-sync rollback`)
+  codex-sync rollback
+  codex-sync --version`)
 }

@@ -62,6 +62,12 @@ This writes the binary to the fixed path used by remote pulls:
 /Users/tombell/.local/bin/codex-sync
 ```
 
+Print the embedded version and commit:
+
+```sh
+codex-sync --version
+```
+
 ## First pull
 
 Run a dry run on a target while ChatGPT is open or closed:

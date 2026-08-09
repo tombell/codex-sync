@@ -1,14 +1,25 @@
-.PHONY: build install test vet
+NAME = codex-sync
 
-build:
-	go build -o bin/codex-sync ./cmd/codex-sync
+VERSION ?= dev
+COMMIT = $(shell git rev-parse HEAD | cut -c -8)
 
-install:
-	mkdir -p "$(HOME)/.local/bin"
-	go build -o "$(HOME)/.local/bin/codex-sync" ./cmd/codex-sync
+LDFLAGS = -ldflags "-X main.Version=$(VERSION) -X main.Commit=$(COMMIT)"
 
-test:
-	go test ./...
+PLATFORMS := darwin-amd64 darwin-arm64 linux-amd64 linux-arm64
 
-vet:
-	go vet ./...
+dev:
+	@echo "building bin/${NAME}"
+	@go build ${LDFLAGS} -o bin/${NAME} ./cmd/${NAME}
+
+prod: $(PLATFORMS)
+
+$(PLATFORMS):
+	@echo "building ${NAME}-$@"
+	@GOOS=$(word 1,$(subst -, ,$@)) GOARCH=$(word 2,$(subst -, ,$@)) \
+		go build ${LDFLAGS} -o bin/${NAME}-$@ ./cmd/${NAME}
+
+clean:
+	@rm -fr bin
+
+.DEFAULT_GOAL := dev
+.PHONY: dev prod $(PLATFORMS) clean
