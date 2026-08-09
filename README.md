@@ -52,7 +52,7 @@ codex-sync export
 
 Only allowlisted values from these files are included:
 
-- `~/.codex/config.toml`: model and reasoning defaults, desktop appearance and behavior, notifications, Browser, and Computer Use preferences.
+- `~/.codex/config.toml`: model and reasoning defaults, Git preferences, desktop appearance and behavior, notifications, Browser, and Computer Use preferences.
 - `~/.codex/.codex-global-state.json`: Browser and Computer Use plugin auto-install flags.
 - `~/.codex/keybindings.json`: custom bindings for known command IDs.
 

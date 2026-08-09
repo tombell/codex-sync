@@ -115,7 +115,7 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, decoy := range []string{
-		"DECOY_AUTH_CONFIG_VALUE", "DECOY_GIT_INSTRUCTION_VALUE", "DECOY_UNKNOWN_SETTING_VALUE",
+		"DECOY_AUTH_CONFIG_VALUE", "DECOY_UNKNOWN_SETTING_VALUE",
 		"DECOY_PROMPT_HISTORY_VALUE", "DECOY_AUTH_GLOBAL_VALUE", "DECOY_SESSION_VALUE",
 		"DECOY_HISTORY_VALUE", "DECOY_INSTALLATION_ID_VALUE", "DECOY_THREAD_VALUE",
 		"/fixture/private-project",
@@ -138,6 +138,14 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	reasoning := bundle.Content.Preferences.ConfigToml["model_reasoning_effort"]
 	if reasoning.Value != "high" {
 		t.Fatalf("unexpected model reasoning effort: %#v", reasoning)
+	}
+	mergeMethod := bundle.Content.Preferences.ConfigToml["desktop.git-pull-request-merge-method"]
+	if mergeMethod.Value != "squash" {
+		t.Fatalf("unexpected pull request merge method: %#v", mergeMethod)
+	}
+	commitInstructions := bundle.Content.Preferences.ConfigToml["desktop.git-commit-instructions"]
+	if commitInstructions.Value != "Use fixture commit messages." {
+		t.Fatalf("unexpected git commit instructions: %#v", commitInstructions)
 	}
 }
 

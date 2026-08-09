@@ -44,8 +44,9 @@ func boolSpec(path string) settingSpec {
 }
 
 var (
-	textPattern = regexp.MustCompile(`^[^\x00-\x1f\x7f]{1,256}$`)
-	idPattern   = regexp.MustCompile(`^[A-Za-z0-9._:/+\-]{1,160}$`)
+	textPattern        = regexp.MustCompile(`^[^\x00-\x1f\x7f]{1,256}$`)
+	idPattern          = regexp.MustCompile(`^[A-Za-z0-9._:/+\-]{1,160}$`)
+	instructionPattern = regexp.MustCompile(`^[^\x00-\x1f\x7f]{0,1000}$`)
 
 	configSpecs = []settingSpec{
 		patternSpec("model", idPattern),
@@ -95,6 +96,10 @@ var (
 		stringSpec("desktop.open-local-url-in-target-preference", "in-app-browser", "external-browser"),
 		stringSpec("desktop.browser-annotation-screenshots-mode", "always", "necessary"),
 		boolSpec("desktop.computerUseAlwaysHidePictureInPicture"),
+		boolSpec("desktop.git-create-pull-request-as-draft"),
+		stringSpec("desktop.git-pull-request-merge-method", "merge", "squash"),
+		boolSpec("desktop.git-show-sidebar-pr-icons"),
+		patternSpec("desktop.git-commit-instructions", instructionPattern),
 	}
 
 	globalSpecs = []settingSpec{
@@ -104,10 +109,6 @@ var (
 
 	knownExcludedDesktopPaths = stringSet(
 		"desktop.keepRemoteControlAwakeWhilePluggedIn",
-		"desktop.git-create-pull-request-as-draft",
-		"desktop.git-pull-request-merge-method",
-		"desktop.git-show-sidebar-pr-icons",
-		"desktop.git-commit-instructions",
 		"desktop.conversationDetailMode",
 		"desktop.dictationDictionary",
 		"desktop.dock-icon-preference",

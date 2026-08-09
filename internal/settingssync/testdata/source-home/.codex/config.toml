@@ -26,7 +26,10 @@ show-context-window-usage = true
 computerUseAlwaysHidePictureInPicture = true
 open-link-in-target-preference = "in-app-browser"
 open-local-url-in-target-preference = "external-browser"
-git-commit-instructions = "DECOY_GIT_INSTRUCTION_VALUE"
+git-create-pull-request-as-draft = true
+git-pull-request-merge-method = "squash"
+git-show-sidebar-pr-icons = true
+git-commit-instructions = "Use fixture commit messages."
 futurePreference = "DECOY_UNKNOWN_SETTING_VALUE"
 
 [desktop.appearanceLightChromeTheme]
