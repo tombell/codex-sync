@@ -40,6 +40,13 @@ func TestQuoteShellArgumentEscapesSingleQuotes(t *testing.T) {
 	}
 }
 
+func TestProcessLookupCommandUsesBundleExecutable(t *testing.T) {
+	command := processLookupCommand("Codex.Preview+")
+	if want := []string{"pgrep", "-x", `Codex\.Preview\+`}; !reflect.DeepEqual(command.Args, want) {
+		t.Fatalf("process lookup command = %#v, want %#v", command.Args, want)
+	}
+}
+
 func TestNewRunnerUsesEnvironmentSSHUser(t *testing.T) {
 	t.Setenv("USER", "alice")
 	var output bytes.Buffer
@@ -141,6 +148,17 @@ func newFixtureEnvironment(t *testing.T) fixtureEnvironment {
 	return fixtureEnvironment{
 		source: Layout{Home: sourceHome, AppPath: app},
 		target: Layout{Home: targetHome, AppPath: app},
+	}
+}
+
+func TestAppInfoIncludesBundleExecutable(t *testing.T) {
+	environment := newFixtureEnvironment(t)
+	app, err := getAppInfo(environment.target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := app.Executable, "CodexFixture"; got != want {
+		t.Fatalf("bundle executable = %q, want %q", got, want)
 	}
 }
 
@@ -356,7 +374,7 @@ func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 		}
 		return bundle, nil
 	}
-	runner.AppRunning = func() bool { return true }
+	runner.AppRunning = func(string) (bool, error) { return true, nil }
 	if code := runner.Run([]string{"pull", "source-mac", "--dry-run"}); code != 0 {
 		t.Fatalf("dry run failed: code=%d stderr=%s", code, stderr.String())
 	}
@@ -365,6 +383,30 @@ func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Dir(environment.target.Backups())); !os.IsNotExist(err) {
 		t.Fatal("dry run created local backup state")
+	}
+}
+
+func TestPullChecksSelectedBundleExecutableBeforeApplying(t *testing.T) {
+	environment := newFixtureEnvironment(t)
+	before := snapshot(t, environment.target)
+	bundle, err := buildBundle(environment.source, testToolVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
+	runner.Fetch = func(string, string, string, string) (Bundle, error) { return bundle, nil }
+	runner.AppRunning = func(executable string) (bool, error) {
+		if got, want := executable, "CodexFixture"; got != want {
+			t.Fatalf("checked executable = %q, want %q", got, want)
+		}
+		return true, nil
+	}
+	if code := runner.Run([]string{"pull", "source-mac"}); code == 0 || !strings.Contains(stderr.String(), "Codex desktop is running") {
+		t.Fatalf("running app did not block pull: code=%d stderr=%s", code, stderr.String())
+	}
+	if !reflect.DeepEqual(before, snapshot(t, environment.target)) {
+		t.Fatal("blocked pull changed settings")
 	}
 }
 
@@ -423,7 +465,7 @@ func TestUnknownLocalKeybindingBlocksNormalPull(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
 	runner.Fetch = func(string, string, string, string) (Bundle, error) { return bundle, nil }
-	runner.AppRunning = func() bool { return false }
+	runner.AppRunning = func(string) (bool, error) { return false, nil }
 	if code := runner.Run([]string{"pull", "source-mac"}); code == 0 || !strings.Contains(stderr.String(), "unknown commands") {
 		t.Fatalf("unknown local command did not block pull: code=%d stderr=%s", code, stderr.String())
 	}

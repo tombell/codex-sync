@@ -32,7 +32,7 @@ Preview a pull:
 codex-sync pull source-mac --dry-run
 ```
 
-Quit ChatGPT, then apply it:
+Quit Codex desktop, then apply it:
 
 ```sh
 codex-sync pull source-mac
@@ -50,7 +50,7 @@ codex-sync audit                             # exit 2 for unknown settings or co
 codex-sync rollback                          # restore the latest completed backup
 ```
 
-`status` and dry runs are safe while ChatGPT is open. Pulls and rollbacks require it to be fully quit.
+`status` and dry runs are safe while Codex desktop is open. Pulls and rollbacks require it to be fully quit.
 
 To inspect the sanitized data produced on a source Mac:
 

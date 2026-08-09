@@ -61,9 +61,10 @@ func (l Layout) Backups() string {
 }
 
 type AppInfo struct {
-	BundleID string
-	Version  string
-	Build    string
+	BundleID   string
+	Version    string
+	Build      string
+	Executable string
 }
 
 type Entry struct {

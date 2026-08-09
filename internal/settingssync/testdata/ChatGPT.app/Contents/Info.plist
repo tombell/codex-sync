@@ -8,5 +8,7 @@
   <string>26.730.61639</string>
   <key>CFBundleVersion</key>
   <string>6234</string>
+  <key>CFBundleExecutable</key>
+  <string>CodexFixture</string>
 </dict>
 </plist>

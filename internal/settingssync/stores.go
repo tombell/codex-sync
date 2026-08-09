@@ -232,8 +232,12 @@ func getAppInfo(layout Layout) (AppInfo, error) {
 	if err != nil {
 		return AppInfo{}, err
 	}
-	info := AppInfo{BundleID: bundleID, Version: version, Build: build}
-	if info.BundleID == "" || info.Version == "" || info.Build == "" {
+	executable, err := read("CFBundleExecutable")
+	if err != nil {
+		return AppInfo{}, err
+	}
+	info := AppInfo{BundleID: bundleID, Version: version, Build: build, Executable: executable}
+	if info.BundleID == "" || info.Version == "" || info.Build == "" || info.Executable == "" {
 		return AppInfo{}, fmt.Errorf("ChatGPT application metadata is incomplete")
 	}
 	if info.BundleID != ExpectedBundleID {

@@ -2,11 +2,13 @@ package settingssync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"syscall"
@@ -18,7 +20,7 @@ type Runner struct {
 	Stdout          io.Writer
 	Stderr          io.Writer
 	Fetch           func(string, string, string, string) (Bundle, error)
-	AppRunning      func() bool
+	AppRunning      func(string) (bool, error)
 	SSHUser         string
 	Version         string
 	SourceCodexHome string
@@ -30,7 +32,7 @@ func NewRunner(layout Layout, stdout, stderr io.Writer, version string) Runner {
 		Stdout:     stdout,
 		Stderr:     stderr,
 		Fetch:      fetchBundle,
-		AppRunning: chatgptIsRunning,
+		AppRunning: processIsRunning,
 		SSHUser:    os.Getenv("USER"),
 		Version:    version,
 	}
@@ -93,8 +95,18 @@ func (runner Runner) Run(args []string) int {
 			runErr = fmt.Errorf("usage: codex-sync rollback")
 			break
 		}
-		if runner.AppRunning() {
-			runErr = fmt.Errorf("ChatGPT is running; quit it before rollback")
+		app, appErr := getAppInfo(runner.Layout)
+		if appErr != nil {
+			runErr = appErr
+			break
+		}
+		running, checkErr := runner.AppRunning(app.Executable)
+		if checkErr != nil {
+			runErr = checkErr
+			break
+		}
+		if running {
+			runErr = fmt.Errorf("Codex desktop is running; quit it before rollback")
 			break
 		}
 		var backup string
@@ -195,8 +207,12 @@ func (runner Runner) runPull(target sshTarget, dryRun bool) (int, error) {
 	if len(changes) == 0 {
 		return 0, nil
 	}
-	if runner.AppRunning() {
-		return 1, fmt.Errorf("ChatGPT is running; quit it before applying settings")
+	running, err := runner.AppRunning(app.Executable)
+	if err != nil {
+		return 1, err
+	}
+	if running {
+		return 1, fmt.Errorf("Codex desktop is running; quit it before applying settings")
 	}
 	if len(current.Audit.UnknownKeybindingCommands) > 0 {
 		return 1, fmt.Errorf("local keybindings contain unknown commands; audit and update the allowlist first")
@@ -367,16 +383,23 @@ func quoteShellArgument(argument string) string {
 	return "'" + strings.ReplaceAll(argument, "'", `'"'"'`) + "'"
 }
 
-func chatgptIsRunning() bool {
-	command := exec.Command("pgrep", "-x", "ChatGPT")
+func processIsRunning(executable string) (bool, error) {
+	command := processLookupCommand(executable)
 	command.Stdout = io.Discard
 	command.Stderr = io.Discard
 	if err := command.Run(); err == nil {
-		return true
-	} else if _, ok := err.(*exec.ExitError); ok {
-		return false
+		return true, nil
+	} else {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return false, nil
+		}
+		return false, fmt.Errorf("check whether %s is running: %w", executable, err)
 	}
-	return true
+}
+
+func processLookupCommand(executable string) *exec.Cmd {
+	return exec.Command("pgrep", "-x", regexp.QuoteMeta(executable))
 }
 
 func operationLock() (func(), error) {
