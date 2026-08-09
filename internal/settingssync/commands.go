@@ -481,6 +481,8 @@ func printUsage(writer io.Writer) {
   codex-sync --version
 
 Global options:
+  --config <path>            Configuration file (default XDG config path).
+  --no-config               Do not load a configuration file.
   --app-path <path>          Application bundle path; forwarded to sources.
   --codex-home <path>        Local Codex configuration root.
   --state-home <path>        Local state root for backups and rollback.
@@ -490,5 +492,6 @@ Global options:
   --ssh-connect-timeout <d>  SSH connection timeout (default 10s).
   --export-timeout <d>       Total source export timeout (default 1m).
 
-SSH user defaults to $USER. Override it with --user <user> or -u <user>.`)
+SSH user defaults to ssh_user in the config file, then $USER. Override it with
+--user <user> or -u <user>.`)
 }

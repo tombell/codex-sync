@@ -20,7 +20,7 @@ For a nonstandard remote installation, use `--source-binary <absolute-path>`. Th
 
 SSH connections time out after `10s` and the complete remote export after `1m` by default. Override them with `--ssh-connect-timeout <duration>` and `--export-timeout <duration>`; values must be whole seconds from `1s` to `1h`.
 
-SSH uses the local `$USER` as the remote login name by default. If the source uses a different account, pass `--user <user>` (or `-u <user>`).
+SSH uses `ssh_user` from the configuration file, then the local `$USER`, as the remote login name by default. If the source uses a different account, pass `--user <user>` (or `-u <user>`).
 
 The application bundle defaults to `/Applications/ChatGPT.app`. Override it with `--app-path <absolute-path>`. Pulls and status checks forward the override to the source Mac, so the application must be at that path on both Macs.
 
@@ -29,6 +29,26 @@ Settings default to `~/.codex` on each Mac and honor that machine's `CODEX_HOME`
 Backups default to `$XDG_STATE_HOME/codex-sync/backups/` when `XDG_STATE_HOME` is set, or `~/.local/state/codex-sync/backups/` otherwise. Use `--state-home <absolute-path>` to override the local state root.
 
 Check that the same version is installed on every Mac with `codex-sync --version`.
+
+## Configuration
+
+`codex-sync` loads `$XDG_CONFIG_HOME/codex-sync/config.toml`, falling back to `~/.config/codex-sync/config.toml`. The default file is optional. Use `--config <absolute-path>` to load another file, or `--no-config` to disable configuration loading.
+
+```toml
+app_path = "/Applications/ChatGPT.app"
+codex_home = "/Users/alice/.codex"
+state_home = "/Users/alice/.local/state"
+
+ssh_user = "alice"
+source_codex_home = "/Users/alice/.codex"
+source_binary = "/opt/homebrew/bin/codex-sync"
+source_shell = "/bin/zsh"
+
+ssh_connect_timeout = "10s"
+export_timeout = "1m"
+```
+
+Every key is optional. Paths must be absolute, durations must be whole seconds from `1s` to `1h`, and unknown keys are rejected. Command-line flags take precedence over the configuration file, which takes precedence over `USER`, `CODEX_HOME`, and `XDG_STATE_HOME`; built-in defaults apply last. `--user` overrides `ssh_user` for an individual pull or status command.
 
 ## Usage
 

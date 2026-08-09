@@ -43,6 +43,30 @@ func TestParseGlobalArgsAcceptsAppPathAnywhere(t *testing.T) {
 	}
 }
 
+func TestParseGlobalArgsAcceptsConfigControls(t *testing.T) {
+	remaining, options, err := parseGlobalArgs([]string{"audit", "--config", "/Volumes/settings/codex-sync.toml"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"audit"}; !reflect.DeepEqual(remaining, want) {
+		t.Fatalf("remaining args = %q, want %q", remaining, want)
+	}
+	if want := "/Volumes/settings/codex-sync.toml"; options.ConfigPath != want {
+		t.Fatalf("config path = %q, want %q", options.ConfigPath, want)
+	}
+
+	remaining, options, err = parseGlobalArgs([]string{"--no-config", "audit"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"audit"}; !reflect.DeepEqual(remaining, want) {
+		t.Fatalf("remaining args = %q, want %q", remaining, want)
+	}
+	if !options.NoConfig {
+		t.Fatal("no-config was not enabled")
+	}
+}
+
 func TestParseGlobalArgsAcceptsSourceOverrides(t *testing.T) {
 	args := []string{
 		"pull", "source-mac",
@@ -92,6 +116,10 @@ func TestParseGlobalArgsRejectsInvalidPaths(t *testing.T) {
 		{"audit", "--codex-home", ".codex-beta"},
 		{"audit", "--state-home", "state"},
 		{"rollback", "--state-home=/Volumes/state", "--state-home", "/Volumes/other-state"},
+		{"audit", "--config", "codex-sync.toml"},
+		{"audit", "--config", "/Volumes/config.toml", "--config=/Volumes/other.toml"},
+		{"audit", "--no-config", "--no-config"},
+		{"audit", "--config", "/Volumes/config.toml", "--no-config"},
 		{"pull", "source-mac", "--source-codex-home"},
 		{"pull", "source-mac", "--source-binary", "bin/codex-sync"},
 		{"pull", "source-mac", "--source-shell"},

@@ -29,6 +29,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "codex-sync: remote options are only valid with pull or status")
 		return 1
 	}
+	options, err = loadConfiguration(options)
+	if err != nil {
+		fmt.Fprintf(stderr, "codex-sync: %v\n", err)
+		return 1
+	}
 
 	layout, err := settingssync.LiveLayout(options.CodexHome, options.StateHome)
 	if err != nil {
@@ -39,6 +44,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		layout.AppPath = options.AppPath
 	}
 	runner := settingssync.NewRunner(layout, stdout, stderr, Version)
+	if options.SSHUser != "" {
+		runner.SSHUser = options.SSHUser
+	}
 	runner.SourceCodexHome = options.SourceCodexHome
 	if options.SourceBinary != "" {
 		runner.SourceBinary = options.SourceBinary
@@ -57,11 +65,14 @@ type globalOptions struct {
 	AppPath           string
 	CodexHome         string
 	StateHome         string
+	SSHUser           string
 	SourceCodexHome   string
 	SourceBinary      string
 	SourceShell       string
 	SSHConnectTimeout time.Duration
 	ExportTimeout     time.Duration
+	ConfigPath        string
+	NoConfig          bool
 }
 
 func (options globalOptions) hasRemoteOptions() bool {
@@ -78,6 +89,7 @@ func parseGlobalArgs(args []string) ([]string, globalOptions, error) {
 		{"--app-path", &options.AppPath},
 		{"--codex-home", &options.CodexHome},
 		{"--state-home", &options.StateHome},
+		{"--config", &options.ConfigPath},
 		{"--source-codex-home", &options.SourceCodexHome},
 		{"--source-binary", &options.SourceBinary},
 		{"--source-shell", &options.SourceShell},
@@ -92,7 +104,17 @@ func parseGlobalArgs(args []string) ([]string, globalOptions, error) {
 	for index := 0; index < len(args); index++ {
 		argument := args[index]
 		matched := false
+		if argument == "--no-config" {
+			if options.NoConfig {
+				return nil, globalOptions{}, fmt.Errorf("--no-config may only be specified once")
+			}
+			options.NoConfig = true
+			matched = true
+		}
 		for _, option := range pathOptions {
+			if matched {
+				break
+			}
 			value := ""
 			switch {
 			case argument == option.name:
@@ -135,8 +157,8 @@ func parseGlobalArgs(args []string) ([]string, globalOptions, error) {
 				if *option.value != 0 {
 					return nil, globalOptions{}, fmt.Errorf("%s may only be specified once", option.name)
 				}
-				duration, err := time.ParseDuration(value)
-				if err != nil || duration < time.Second || duration > time.Hour || duration%time.Second != 0 {
+				duration, err := parseDuration(value)
+				if err != nil {
 					return nil, globalOptions{}, fmt.Errorf("%s requires a whole-second duration from 1s to 1h", option.name)
 				}
 				*option.value = duration
@@ -146,6 +168,9 @@ func parseGlobalArgs(args []string) ([]string, globalOptions, error) {
 		if !matched {
 			remaining = append(remaining, argument)
 		}
+	}
+	if options.NoConfig && options.ConfigPath != "" {
+		return nil, globalOptions{}, fmt.Errorf("--config and --no-config cannot be used together")
 	}
 	return remaining, options, nil
 }
