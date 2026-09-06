@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	sectionRE    = regexp.MustCompile(`^\s*\[([A-Za-z0-9_.-]+)\]\s*(?:#.*)?$`)
+	sectionRE    = regexp.MustCompile(`^\s*\[(.+)\]\s*(?:#.*)?$`)
 	assignmentRE = regexp.MustCompile(`^\s*([A-Za-z0-9_-]+)\s*=\s*(.*?)\s*$`)
 	integerRE    = regexp.MustCompile(`^[-+]?[0-9]+$`)
 	floatRE      = regexp.MustCompile(`^[-+]?(?:[0-9]+\.[0-9]*|[0-9]*\.[0-9]+)$`)

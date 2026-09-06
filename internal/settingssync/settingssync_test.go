@@ -293,7 +293,7 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 		"DECOY_PROFILE_AUTH_VALUE",
 		"DECOY_PROMPT_HISTORY_VALUE", "DECOY_AUTH_GLOBAL_VALUE", "DECOY_SESSION_VALUE",
 		"DECOY_HISTORY_VALUE", "DECOY_INSTALLATION_ID_VALUE", "DECOY_THREAD_VALUE",
-		"/fixture/private-project",
+		"/fixture/private-project", "private-project-model",
 	} {
 		if bytes.Contains(serialized, []byte(decoy)) {
 			t.Errorf("export leaked decoy %q", decoy)
@@ -640,7 +640,7 @@ func TestLocalRoundTripPreservesAllowedPreferencesOnly(t *testing.T) {
 	config, _ := os.ReadFile(environment.target.Config())
 	global, _ := os.ReadFile(environment.target.GlobalState())
 	profile, _ := os.ReadFile(environment.target.Profile("review.config.toml"))
-	for _, decoy := range []string{"TARGET_AUTH_MUST_STAY", "TARGET_HISTORY_MUST_STAY"} {
+	for _, decoy := range []string{"TARGET_AUTH_MUST_STAY", "TARGET_HISTORY_MUST_STAY", "private-project-model", "[plugins.\"private@local\"]"} {
 		if !bytes.Contains(config, []byte(decoy)) {
 			t.Errorf("target config did not preserve %s", decoy)
 		}

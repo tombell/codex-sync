@@ -92,7 +92,7 @@ codex-sync export
 
 Settings are collected from these files under `$CODEX_HOME` (default `~/.codex`):
 
-- `config.toml`: model, reasoning, and capability defaults; Git preferences; desktop appearance and behavior; notifications; Browser; and Computer Use preferences.
+- `config.toml`: model, reasoning, and capability defaults; Git preferences; desktop appearance and behavior (including plain-text composition, educational tips, review delivery, terminal placement, and questions outside Plan mode); notifications; Browser; and Computer Use preferences.
 - `*.config.toml`: the same allowlisted settings for named profiles.
 - `.codex-global-state.json`: Browser and Computer Use plugin auto-install flags.
 - `keybindings.json`: custom bindings for known command IDs.
@@ -121,7 +121,7 @@ Backups contain complete copies of the affected local files, including rules and
 
 ## Adding a setting
 
-1. Confirm the setting's path and type from official documentation or a one-setting before/after comparison.
+1. Confirm the setting's path and type from official documentation, the installed app's settings registry, or a one-setting before/after comparison.
 2. Add it to `configSpecs` or `globalSpecs`. Profile values use `configSpecs` automatically. For shortcuts, add only a verified command ID.
 3. Add fixtures covering the setting and sensitive decoy values.
 4. Test export filtering, audit, dry-run, apply, and rollback, then run `codex-sync audit` on the source Mac.
@@ -137,3 +137,5 @@ make prod            # macOS binaries
 ```
 
 Tests use fixtures and temporary directories; they do not touch live Codex settings.
+
+The desktop fields added for ChatGPT 26.901.51231 (build 8109) were checked against the bundled `app.asar` settings registry: `composerPlainTextMode` and `show-educational-tips` are booleans, `reviewDelivery` accepts `inline` or `detached`, `defaultTerminalLocation` accepts `bottom` or `right`, and `default-mode-request-user-input-enabled` is a boolean. These use the `desktop` configuration table and the same allowlist for named profiles.

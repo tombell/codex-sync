@@ -16,6 +16,11 @@ default_subagent_model = "target-subagent"
 default_subagent_reasoning_effort = "low"
 
 [desktop]
+composerPlainTextMode = false
+show-educational-tips = true
+reviewDelivery = "inline"
+defaultTerminalLocation = "bottom"
+default-mode-request-user-input-enabled = true
 composerEnterBehavior = "enter"
 preventSleepWhileRunning = false
 keepRemoteControlAwakeWhilePluggedIn = false
@@ -39,3 +44,8 @@ global = "editor"
 
 [unrelated]
 history = "TARGET_HISTORY_MUST_STAY"
+
+[projects."/fixture/private-project"]
+model = "private-project-model"
+[plugins."private@local"]
+enabled = true

@@ -19,6 +19,11 @@ default_subagent_reasoning_effort = "xhigh"
 trust_level = "trusted"
 
 [desktop]
+composerPlainTextMode = true
+show-educational-tips = false
+reviewDelivery = "detached"
+defaultTerminalLocation = "right"
+default-mode-request-user-input-enabled = false
 composerEnterBehavior = "cmdIfMultiline"
 preventSleepWhileRunning = true
 keepRemoteControlAwakeWhilePluggedIn = true
@@ -67,3 +72,8 @@ global = "fileManager"
 
 [history]
 last_prompt = "DECOY_PROMPT_HISTORY_VALUE"
+
+[projects."/fixture/private-project"]
+model = "private-project-model"
+[plugins."private@local"]
+enabled = true

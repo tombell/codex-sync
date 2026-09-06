@@ -64,6 +64,12 @@ var (
 		stringSpec("agents.default_subagent_reasoning_effort", "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"),
 		stringSpec("personality", "friendly", "pragmatic", "none"),
 		stringSpec("desktop.composerEnterBehavior", "enter", "cmdIfMultiline", "cmdAlways"),
+		// Verified against the installed ChatGPT app's settings registry (app.asar).
+		boolSpec("desktop.composerPlainTextMode"),
+		boolSpec("desktop.show-educational-tips"),
+		stringSpec("desktop.reviewDelivery", "inline", "detached"),
+		stringSpec("desktop.defaultTerminalLocation", "bottom", "right"),
+		boolSpec("desktop.default-mode-request-user-input-enabled"),
 		boolSpec("desktop.preventSleepWhileRunning"),
 		boolSpec("desktop.keepRemoteControlAwakeWhilePluggedIn"),
 		stringSpec("desktop.followUpQueueMode", "queue", "steer", "interrupt"),
