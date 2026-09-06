@@ -143,7 +143,7 @@ var (
 		"hotkeyWindow", "keyboardShortcuts", "logOut", "manageTasks", "mcpSettings",
 		"navigateBack", "navigateBrowserBack", "navigateBrowserForward", "navigateForward",
 		"newProjectlessTask", "newTask", "newWindow", "nextRecentThread", "nextTab", "nextThread",
-		"openBrowserTab", "openCommandMenu", "openControlWindow", "openFolder", "openReviewTab",
+		"openAvatarOverlay", "openBrowserTab", "openCommandMenu", "openControlWindow", "openFolder", "openReviewTab",
 		"openSideChat", "openSkills", "openThreadInNewWindow", "personalitySettings",
 		"previousRecentThread", "previousTab", "previousThread", "quickChat", "realtimeVoice",
 		"realtimeVoice.toggleMicrophoneMute", "redoAppAction", "reloadBrowserPage", "renameThread",

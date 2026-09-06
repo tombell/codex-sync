@@ -361,6 +361,27 @@ func TestExportContainsOnlyAllowlistedPreferences(t *testing.T) {
 	}
 }
 
+// The installed app registers openAvatarOverlay as the global Show pet shortcut.
+func TestAvatarOverlayKeybinding(t *testing.T) {
+	for _, key := range []string{`"Ctrl+Space"`, `null`} {
+		data := []byte(`[{"command":"openAvatarOverlay","key":` + key + `}]`)
+		bindings, unknown, err := validateKeybindings(data, true)
+		if err != nil || len(unknown) != 0 || len(bindings) != 1 {
+			t.Fatalf("avatar shortcut rejected: bindings=%v unknown=%v err=%v", bindings, unknown, err)
+		}
+		if bindings[0].Command != "openAvatarOverlay" {
+			t.Fatal("command changed")
+		}
+		if key == "null" {
+			if bindings[0].Key != nil {
+				t.Fatal("disabled binding was not preserved")
+			}
+		} else if bindings[0].Key == nil || *bindings[0].Key != "Ctrl+Space" {
+			t.Fatal("custom shortcut was not preserved")
+		}
+	}
+}
+
 func TestBundleUsesAndValidatesCLIVersion(t *testing.T) {
 	environment := newFixtureEnvironment(t)
 	bundle, err := buildBundle(environment.source, testToolVersion)

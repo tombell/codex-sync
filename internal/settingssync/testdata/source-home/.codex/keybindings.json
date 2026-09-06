@@ -6,5 +6,9 @@
   {
     "command": "newTask",
     "key": "Command+N"
+  },
+  {
+    "command": "openAvatarOverlay",
+    "key": "Ctrl+Space"
   }
 ]
