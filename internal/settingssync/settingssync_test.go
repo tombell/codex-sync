@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -193,7 +194,11 @@ func newFixtureEnvironment(t *testing.T) fixtureEnvironment {
 	t.Helper()
 	root := t.TempDir()
 	app := filepath.Join(root, "ChatGPT.app")
-	copyTree(t, filepath.Join("testdata", "ChatGPT.app"), app)
+	if runtime.GOOS == "linux" {
+		writeLinuxFixture(t, app, "26.730.61639", "6234")
+	} else {
+		copyTree(t, filepath.Join("testdata", "ChatGPT.app"), app)
+	}
 	sourceHome := filepath.Join(root, "source-home")
 	targetHome := filepath.Join(root, "target-home")
 	copyTree(t, filepath.Join("testdata", "source-home"), sourceHome)
@@ -210,7 +215,7 @@ func TestAppInfoIncludesBundleExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := app.Executable, "CodexFixture"; got != want {
+	if got, want := app.Executable, fixtureExecutable(); got != want {
 		t.Fatalf("bundle executable = %q, want %q", got, want)
 	}
 }
@@ -438,14 +443,15 @@ func TestDryRunPerformsNoSettingsWrites(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
+	runner.SourceAppPath = "/usr/lib/chatgpt"
 	runner.SourceCodexHome = "/Users/remote/.codex-preview"
 	runner.SourceBinary = "/opt/homebrew/bin/codex-sync"
 	runner.SourceShell = "/bin/zsh"
 	runner.SSHConnectTimeout = 25 * time.Second
 	runner.ExportTimeout = 2 * time.Minute
 	runner.Fetch = func(_, _ string, options remoteExportOptions) (Bundle, error) {
-		if options.AppPath != environment.target.AppPath {
-			t.Fatalf("fetch app path = %q, want %q", options.AppPath, environment.target.AppPath)
+		if options.AppPath != runner.SourceAppPath {
+			t.Fatalf("fetch app path = %q, want %q", options.AppPath, runner.SourceAppPath)
 		}
 		if options.CodexHome != runner.SourceCodexHome {
 			t.Fatalf("fetch source Codex home = %q, want %q", options.CodexHome, runner.SourceCodexHome)
@@ -481,7 +487,7 @@ func TestPullChecksSelectedBundleExecutableBeforeApplying(t *testing.T) {
 	runner := NewRunner(environment.target, &stdout, &stderr, testToolVersion)
 	runner.Fetch = func(string, string, remoteExportOptions) (Bundle, error) { return bundle, nil }
 	runner.AppRunning = func(executable string) (bool, error) {
-		if got, want := executable, "CodexFixture"; got != want {
+		if got, want := executable, fixtureExecutable(); got != want {
 			t.Fatalf("checked executable = %q, want %q", got, want)
 		}
 		return true, nil
@@ -687,4 +693,11 @@ func TestLocalRoundTripPreservesAllowedPreferencesOnly(t *testing.T) {
 	if !fileExists(environment.target.Rule("review.rules")) {
 		t.Error("source-only rule was not created")
 	}
+}
+
+func fixtureExecutable() string {
+	if runtime.GOOS == "linux" {
+		return "ChatGPT"
+	}
+	return "CodexFixture"
 }

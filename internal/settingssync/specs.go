@@ -3,7 +3,7 @@ package settingssync
 import "regexp"
 
 const (
-	BundleSchemaVersion = 3
+	BundleSchemaVersion = 4
 	ExpectedBundleID    = "com.openai.codex"
 	BundleSourceRole    = "source"
 	MaxBundleBytes      = 1024 * 1024
@@ -92,6 +92,7 @@ var (
 		stringSpec("desktop.dock-icon-preference", "app-default", "codex-system"),
 		stringSpec("desktop.selected-avatar-id", "codex", "dewey", "fireball", "hoots", "rocky", "seedy", "stacky", "bsod", "null-signal"),
 		patternSpec("desktop.appearanceLightChromeTheme.accent", textPattern),
+		stringSpec("desktop.appearanceLightChromeTheme.accentSource", "chatgpt", "custom"),
 		numberSpec("desktop.appearanceLightChromeTheme.contrast", 0, 100),
 		patternSpec("desktop.appearanceLightChromeTheme.ink", textPattern),
 		boolSpec("desktop.appearanceLightChromeTheme.opaqueWindows"),
@@ -102,6 +103,7 @@ var (
 		patternSpec("desktop.appearanceLightChromeTheme.semanticColors.diffRemoved", textPattern),
 		patternSpec("desktop.appearanceLightChromeTheme.semanticColors.skill", textPattern),
 		patternSpec("desktop.appearanceDarkChromeTheme.accent", textPattern),
+		stringSpec("desktop.appearanceDarkChromeTheme.accentSource", "chatgpt", "custom"),
 		numberSpec("desktop.appearanceDarkChromeTheme.contrast", 0, 100),
 		patternSpec("desktop.appearanceDarkChromeTheme.ink", textPattern),
 		boolSpec("desktop.appearanceDarkChromeTheme.opaqueWindows"),

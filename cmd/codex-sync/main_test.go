@@ -72,6 +72,7 @@ func TestParseGlobalArgsAcceptsSourceOverrides(t *testing.T) {
 		"pull", "source-mac",
 		"--codex-home", "/Users/local/.codex-beta",
 		"--state-home", "/Volumes/settings/state",
+		"--source-app-path=/usr/lib/chatgpt",
 		"--source-codex-home=/Users/remote/.codex-preview",
 		"--source-binary", "/opt/homebrew/bin/codex-sync",
 		"--source-shell=/bin/zsh",
@@ -90,6 +91,9 @@ func TestParseGlobalArgsAcceptsSourceOverrides(t *testing.T) {
 	}
 	if want := "/Volumes/settings/state"; options.StateHome != want {
 		t.Fatalf("state home = %q, want %q", options.StateHome, want)
+	}
+	if options.SourceAppPath != "/usr/lib/chatgpt" {
+		t.Fatalf("source path = %q", options.SourceAppPath)
 	}
 	if want := "/Users/remote/.codex-preview"; options.SourceCodexHome != want {
 		t.Fatalf("source Codex home = %q, want %q", options.SourceCodexHome, want)
@@ -120,6 +124,9 @@ func TestParseGlobalArgsRejectsInvalidPaths(t *testing.T) {
 		{"audit", "--config", "/Volumes/config.toml", "--config=/Volumes/other.toml"},
 		{"audit", "--no-config", "--no-config"},
 		{"audit", "--config", "/Volumes/config.toml", "--no-config"},
+		{"pull", "source-mac", "--source-app-path"},
+		{"pull", "source-mac", "--source-app-path", "relative"},
+		{"pull", "source-mac", "--source-app-path=/a", "--source-app-path=/b"},
 		{"pull", "source-mac", "--source-codex-home"},
 		{"pull", "source-mac", "--source-binary", "bin/codex-sync"},
 		{"pull", "source-mac", "--source-shell"},
@@ -140,5 +147,12 @@ func TestRunRejectsRemoteOptionsForLocalCommand(t *testing.T) {
 	code := run([]string{"audit", "--source-binary", "/opt/homebrew/bin/codex-sync"}, &stdout, &stderr)
 	if code == 0 || !strings.Contains(stderr.String(), "only valid with pull or status") {
 		t.Fatalf("code = %d, stderr = %q", code, stderr.String())
+	}
+}
+
+func TestRunRejectsSourceAppPathForLocalCommand(t *testing.T) {
+	var output bytes.Buffer
+	if code := run([]string{"audit", "--source-app-path=/usr/lib/chatgpt"}, &output, &output); code == 0 || !strings.Contains(output.String(), "only valid with pull or status") {
+		t.Fatalf("code=%d output=%s", code, &output)
 	}
 }

@@ -45,7 +45,7 @@ func LiveLayout(codexPath, statePath string) (Layout, error) {
 		}
 		statePath = filepath.Clean(statePath)
 	}
-	return Layout{Home: home, CodexPath: codexPath, StatePath: statePath, AppPath: defaultAppPath}, nil
+	return Layout{Home: home, CodexPath: codexPath, StatePath: statePath}, nil
 }
 
 func (l Layout) Config() string { return filepath.Join(l.CodexHome(), "config.toml") }
@@ -77,6 +77,7 @@ func (l Layout) Backups() string {
 }
 
 type AppInfo struct {
+	Platform   string
 	BundleID   string
 	Version    string
 	Build      string
@@ -188,14 +189,15 @@ type Content struct {
 }
 
 type Manifest struct {
-	SchemaVersion int    `json:"schema_version"`
-	ToolVersion   string `json:"tool_version"`
-	SourceRole    string `json:"source_role"`
-	AppBundleID   string `json:"app_bundle_id"`
-	AppVersion    string `json:"app_version"`
-	AppBuild      string `json:"app_build"`
-	ExportedAt    string `json:"exported_at"`
-	ContentSHA256 string `json:"content_sha256"`
+	SourcePlatform string `json:"source_platform"`
+	SchemaVersion  int    `json:"schema_version"`
+	ToolVersion    string `json:"tool_version"`
+	SourceRole     string `json:"source_role"`
+	AppBundleID    string `json:"app_bundle_id"`
+	AppVersion     string `json:"app_version"`
+	AppBuild       string `json:"app_build"`
+	ExportedAt     string `json:"exported_at"`
+	ContentSHA256  string `json:"content_sha256"`
 }
 
 type Bundle struct {

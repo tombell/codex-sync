@@ -25,14 +25,15 @@ func buildBundle(layout Layout, toolVersion string) (Bundle, error) {
 	}
 	return Bundle{
 		Manifest: Manifest{
-			SchemaVersion: BundleSchemaVersion,
-			ToolVersion:   toolVersion,
-			SourceRole:    BundleSourceRole,
-			AppBundleID:   app.BundleID,
-			AppVersion:    app.Version,
-			AppBuild:      app.Build,
-			ExportedAt:    time.Now().UTC().Truncate(time.Second).Format(time.RFC3339),
-			ContentSHA256: sha256Bytes(encoded),
+			SchemaVersion:  BundleSchemaVersion,
+			SourcePlatform: app.Platform,
+			ToolVersion:    toolVersion,
+			SourceRole:     BundleSourceRole,
+			AppBundleID:    app.BundleID,
+			AppVersion:     app.Version,
+			AppBuild:       app.Build,
+			ExportedAt:     time.Now().UTC().Truncate(time.Second).Format(time.RFC3339),
+			ContentSHA256:  sha256Bytes(encoded),
 		},
 		Content: content,
 	}, nil
@@ -95,7 +96,10 @@ func validateBundle(bundle Bundle, target AppInfo, toolVersion string) (Content,
 		return Content{}, fmt.Errorf("unsupported export schema version")
 	}
 	if manifest.ToolVersion != toolVersion {
-		return Content{}, fmt.Errorf("tool version mismatch (source %q, local %q); update codex-sync on both Macs", manifest.ToolVersion, toolVersion)
+		return Content{}, fmt.Errorf("tool version mismatch (source %q, local %q); update codex-sync on both hosts", manifest.ToolVersion, toolVersion)
+	}
+	if !supportedPlatform(manifest.SourcePlatform) || !supportedPlatform(target.Platform) {
+		return Content{}, fmt.Errorf("unsupported source or target platform")
 	}
 	if manifest.SourceRole != BundleSourceRole {
 		return Content{}, fmt.Errorf("bundle was not exported by a codex-sync source")
