@@ -47,6 +47,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if options.SSHUser != "" {
 		runner.SSHUser = options.SSHUser
 	}
+	runner.SourceAppPath = options.SourceAppPath
 	runner.SourceCodexHome = options.SourceCodexHome
 	if options.SourceBinary != "" {
 		runner.SourceBinary = options.SourceBinary
@@ -66,6 +67,7 @@ type globalOptions struct {
 	CodexHome         string
 	StateHome         string
 	SSHUser           string
+	SourceAppPath     string
 	SourceCodexHome   string
 	SourceBinary      string
 	SourceShell       string
@@ -76,7 +78,7 @@ type globalOptions struct {
 }
 
 func (options globalOptions) hasRemoteOptions() bool {
-	return options.SourceCodexHome != "" || options.SourceBinary != "" || options.SourceShell != "" || options.SSHConnectTimeout != 0 || options.ExportTimeout != 0
+	return options.SourceAppPath != "" || options.SourceCodexHome != "" || options.SourceBinary != "" || options.SourceShell != "" || options.SSHConnectTimeout != 0 || options.ExportTimeout != 0
 }
 
 func parseGlobalArgs(args []string) ([]string, globalOptions, error) {
@@ -90,6 +92,7 @@ func parseGlobalArgs(args []string) ([]string, globalOptions, error) {
 		{"--codex-home", &options.CodexHome},
 		{"--state-home", &options.StateHome},
 		{"--config", &options.ConfigPath},
+		{"--source-app-path", &options.SourceAppPath},
 		{"--source-codex-home", &options.SourceCodexHome},
 		{"--source-binary", &options.SourceBinary},
 		{"--source-shell", &options.SourceShell},

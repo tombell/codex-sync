@@ -18,6 +18,7 @@ type fileConfig struct {
 	CodexHome         string `toml:"codex_home"`
 	StateHome         string `toml:"state_home"`
 	SSHUser           string `toml:"ssh_user"`
+	SourceAppPath     string `toml:"source_app_path"`
 	SourceCodexHome   string `toml:"source_codex_home"`
 	SourceBinary      string `toml:"source_binary"`
 	SourceShell       string `toml:"source_shell"`
@@ -83,6 +84,7 @@ func (config fileConfig) options(metadata toml.MetaData) (globalOptions, error) 
 		{"app_path", config.AppPath, &options.AppPath},
 		{"codex_home", config.CodexHome, &options.CodexHome},
 		{"state_home", config.StateHome, &options.StateHome},
+		{"source_app_path", config.SourceAppPath, &options.SourceAppPath},
 		{"source_codex_home", config.SourceCodexHome, &options.SourceCodexHome},
 		{"source_binary", config.SourceBinary, &options.SourceBinary},
 		{"source_shell", config.SourceShell, &options.SourceShell},
@@ -153,6 +155,9 @@ func mergeOptions(commandLine, configured globalOptions) globalOptions {
 	}
 	if commandLine.SSHUser == "" {
 		commandLine.SSHUser = configured.SSHUser
+	}
+	if commandLine.SourceAppPath == "" {
+		commandLine.SourceAppPath = configured.SourceAppPath
 	}
 	if commandLine.SourceCodexHome == "" {
 		commandLine.SourceCodexHome = configured.SourceCodexHome

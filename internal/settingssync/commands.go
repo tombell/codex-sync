@@ -24,6 +24,7 @@ type Runner struct {
 	AppRunning        func(string) (bool, error)
 	SSHUser           string
 	Version           string
+	SourceAppPath     string
 	SourceCodexHome   string
 	SourceBinary      string
 	SourceShell       string
@@ -219,6 +220,10 @@ func (runner Runner) runPull(target sshTarget, dryRun bool) (int, error) {
 	if err != nil {
 		return 1, err
 	}
+	content.Preferences = preferencesForTarget(content.Preferences, current.Preferences, bundle.Manifest.SourcePlatform, app.Platform)
+	if bundle.Manifest.SourcePlatform != app.Platform {
+		fmt.Fprintln(runner.Stdout, "Cross-platform pull: preserving local shortcuts, fonts, open-in targets, and Mac-only preferences.")
+	}
 	changes := comparePreferences(current.Preferences, content.Preferences)
 	printChanges(runner.Stdout, changes)
 	printUnknownReport(runner.Stdout, "Source", content.Audit)
@@ -265,6 +270,10 @@ func (runner Runner) runStatus(target sshTarget) (int, error) {
 	current, err := buildContent(runner.Layout, false)
 	if err != nil {
 		return 1, err
+	}
+	content.Preferences = preferencesForTarget(content.Preferences, current.Preferences, bundle.Manifest.SourcePlatform, app.Platform)
+	if bundle.Manifest.SourcePlatform != app.Platform {
+		fmt.Fprintln(runner.Stdout, "Cross-platform pull: preserving local shortcuts, fonts, open-in targets, and Mac-only preferences.")
 	}
 	changes := comparePreferences(current.Preferences, content.Preferences)
 	printChanges(runner.Stdout, changes)
@@ -346,7 +355,7 @@ func printUnknownReport(writer io.Writer, label string, audit Audit) {
 
 func (runner Runner) remoteExportOptions() remoteExportOptions {
 	return remoteExportOptions{
-		AppPath:           runner.Layout.AppPath,
+		AppPath:           runner.SourceAppPath,
 		CodexHome:         runner.SourceCodexHome,
 		Binary:            runner.SourceBinary,
 		Shell:             runner.SourceShell,
@@ -404,7 +413,10 @@ func fetchBundle(host, user string, options remoteExportOptions) (Bundle, error)
 }
 
 func sshExportCommand(ctx context.Context, host, user string, options remoteExportOptions) *exec.Cmd {
-	innerCommand := "exec " + quoteShellArgument(options.Binary) + " --app-path " + quoteShellArgument(options.AppPath)
+	innerCommand := "exec " + quoteShellArgument(options.Binary)
+	if options.AppPath != "" {
+		innerCommand += " --app-path " + quoteShellArgument(options.AppPath)
+	}
 	if options.CodexHome != "" {
 		innerCommand += " --codex-home " + quoteShellArgument(options.CodexHome)
 	}
@@ -483,7 +495,8 @@ func printUsage(writer io.Writer) {
 Global options:
   --config <path>            Configuration file (default XDG config path).
   --no-config               Do not load a configuration file.
-  --app-path <path>          Application bundle path; forwarded to sources.
+  --app-path <path>          Local app directory (platform default if omitted).
+  --source-app-path <path>  Remote app directory for pull/status.
   --codex-home <path>        Local Codex configuration root.
   --state-home <path>        Local state root for backups and rollback.
   --source-codex-home <path> Source configuration root for pull/status.

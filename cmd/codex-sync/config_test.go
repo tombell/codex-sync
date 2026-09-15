@@ -15,6 +15,7 @@ app_path = "/Applications/ChatGPT Preview.app"
 codex_home = "/Volumes/config/codex"
 state_home = "/Volumes/config/state"
 ssh_user = "alice"
+source_app_path = "/usr/lib/chatgpt"
 source_codex_home = "/Volumes/source/codex"
 source_binary = "/opt/homebrew/bin/codex-sync"
 source_shell = "/bin/zsh"
@@ -40,6 +41,9 @@ export_timeout = "2m"
 	}
 	if got, want := options.SSHUser, "alice"; got != want {
 		t.Fatalf("SSH user = %q, want %q", got, want)
+	}
+	if options.SourceAppPath != "/usr/lib/chatgpt" {
+		t.Fatalf("source app path = %q", options.SourceAppPath)
 	}
 	if got, want := options.SourceCodexHome, "/Volumes/source/codex"; got != want {
 		t.Fatalf("source Codex home = %q, want %q", got, want)
@@ -172,4 +176,19 @@ func writeTestConfig(t *testing.T, content string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestSourceAppPathCLIOverridesConfiguration(t *testing.T) {
+	path := writeTestConfig(t, `source_app_path = "/usr/lib/chatgpt"`)
+	options, err := loadConfiguration(globalOptions{ConfigPath: path, SourceAppPath: "/opt/chatgpt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.SourceAppPath != "/opt/chatgpt" {
+		t.Fatalf("source path = %q", options.SourceAppPath)
+	}
+	path = writeTestConfig(t, `source_app_path = "relative"`)
+	if _, err := loadConfiguration(globalOptions{ConfigPath: path}); err == nil {
+		t.Fatal("accepted relative source app path")
+	}
 }

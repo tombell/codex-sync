@@ -1,20 +1,29 @@
 # codex-sync
 
-Pull selected Codex desktop settings from one Mac to another.
+Pull selected Codex desktop settings between macOS and Linux hosts.
 
-Each operation is deliberately one-way: the local Mac pulls settings from the source Mac you name.
+Each operation is deliberately one-way: the local host pulls settings from the source host you name.
 
 ## Setup
 
-You need macOS, the Codex desktop application, Homebrew, and SSH access from the target Mac to the source Mac. The source can be an SSH hostname or an alias from `~/.ssh/config`.
+You need macOS or Linux, the Codex desktop application, and SSH access from the target host to the source host. Linux also requires `pgrep`, usually provided by procps. The source can be an SSH hostname or an alias from `~/.ssh/config`.
 
-Install `codex-sync` from the `tombell/formulae` tap on the source and each target Mac:
+On macOS, install `codex-sync` from the `tombell/formulae` tap:
 
 ```sh
 brew install tombell/formulae/codex-sync
 ```
 
-Remote pulls resolve `codex-sync` from the source Mac's login-shell `PATH`. A standard Homebrew shell setup makes the installed binary available without an additional symlink.
+On Linux, build and install it with Go 1.22 or later:
+
+```sh
+go build -o codex-sync ./cmd/codex-sync
+install -Dm755 codex-sync ~/.local/bin/codex-sync
+```
+
+Install the same codex-sync version on the source and target hosts. `~/.local/bin` must be on the remote login shell's `PATH`, or you can pass `--source-binary`.
+
+Remote pulls resolve `codex-sync` from the source host's login-shell `PATH`. A standard Homebrew shell setup makes the installed binary available without an additional symlink.
 
 For a nonstandard remote installation, use `--source-binary <absolute-path>`. The remote login shell defaults to `$SHELL`; override it with `--source-shell <absolute-path>`.
 
@@ -22,13 +31,15 @@ SSH connections time out after `10s` and the complete remote export after `1m` b
 
 SSH uses `ssh_user` from the configuration file, then the local `$USER`, as the remote login name by default. If the source uses a different account, pass `--user <user>` (or `-u <user>`).
 
-The application bundle defaults to `/Applications/ChatGPT.app`. Override it with `--app-path <absolute-path>`. Pulls and status checks forward the override to the source Mac, so the application must be at that path on both Macs.
+The local app directory defaults to `/Applications/ChatGPT.app` on macOS and `/usr/lib/chatgpt` on Linux. Use `--app-path <absolute-path>` for another local installation. Linux support expects the packaged `ChatGPT` executable and `resources/app.asar` inside that directory. CLI-only installations are not supported.
 
-Settings default to `~/.codex` on each Mac and honor that machine's `CODEX_HOME` when set. Use `--codex-home <absolute-path>` to override the local settings root. For a one-off remote override during pull or status, use `--source-codex-home <absolute-path>`.
+Each source uses its own platform default or its own configured `app_path`. Use `--source-app-path <absolute-path>` to override the remote location. `--app-path` now applies only locally; configurations that previously relied on forwarding it must also set `source_app_path`.
+
+Settings default to `~/.codex` on each host and honor that machine's `CODEX_HOME` when set. Use `--codex-home <absolute-path>` to override the local settings root. For a one-off remote override during pull or status, use `--source-codex-home <absolute-path>`.
 
 Backups default to `$XDG_STATE_HOME/codex-sync/backups/` when `XDG_STATE_HOME` is set, or `~/.local/state/codex-sync/backups/` otherwise. Use `--state-home <absolute-path>` to override the local state root.
 
-Check that the same version is installed on every Mac with `codex-sync --version`.
+Check that the same version is installed on every host with `codex-sync --version`.
 
 ## Configuration
 
@@ -40,9 +51,10 @@ codex_home = "/Users/alice/.codex"
 state_home = "/Users/alice/.local/state"
 
 ssh_user = "alice"
-source_codex_home = "/Users/alice/.codex"
-source_binary = "/opt/homebrew/bin/codex-sync"
-source_shell = "/bin/zsh"
+source_app_path = "/usr/lib/chatgpt"
+source_codex_home = "/home/alice/.codex"
+source_binary = "/home/alice/.local/bin/codex-sync"
+source_shell = "/bin/bash"
 
 ssh_connect_timeout = "10s"
 export_timeout = "1m"
@@ -67,7 +79,8 @@ codex-sync pull source-mac
 Other commands:
 
 ```sh
-codex-sync status source-mac                 # exit 1 when changes are available
+codex-sync status source-host                # exit 1 when changes are available
+codex-sync pull linux-host --source-app-path /opt/chatgpt --dry-run
 codex-sync pull source-mac --user other-user # override the SSH user
 codex-sync audit --app-path "/Applications/ChatGPT Beta.app"
 codex-sync pull source-mac --codex-home /Volumes/settings/codex \
@@ -82,7 +95,7 @@ codex-sync rollback --state-home /Volumes/settings/state
 
 `status` and dry runs are safe while Codex desktop is open. Pulls and rollbacks require it to be fully quit.
 
-To inspect the sanitized data produced on a source Mac:
+To inspect the sanitized data produced on a source host:
 
 ```sh
 codex-sync export
@@ -104,12 +117,22 @@ Dock icon preference is limited to the app's canonical icon modes. Selected avat
 
 Auth, chats, sessions, history, projects, device state, browser data, permission profiles, skills, and downloaded assets are not synced.
 
+### Platform differences
+
+Mac-to-Linux and Linux-to-Mac pulls preserve the target's custom keybindings, theme font families, and default open-in target. Shortcut modifiers and installed applications differ between platforms. No shortcut translation is attempted. Same-platform pulls still sync these preferences.
+
+When either host is Linux, menu-bar visibility, Dock icon preference, and font smoothing remain unchanged on the target. This also applies to named profiles, including profiles absent on the source. Shared settings retain the usual reset-to-default behavior.
+
+Linux desktop version and build come from `package.json` in `resources/app.asar`. Both must match the target, including for cross-platform pulls. This release uses export schema 4; update codex-sync on both hosts before syncing.
+
+The verified Linux layout and storage details are in [Linux host investigation](docs/linux-hosts.md).
+
 ## Safety
 
 Before applying a pull, `codex-sync`:
 
 - checks the bundle schema and hash;
-- requires matching tool and ChatGPT versions on both Macs;
+- requires matching tool and ChatGPT versions on both hosts;
 - prints a redacted diff;
 - rejects unknown exported settings and shortcut commands;
 - creates a backup under `$XDG_STATE_HOME/codex-sync/backups/` (default `~/.local/state/codex-sync/backups/`);
@@ -124,7 +147,7 @@ Backups contain complete copies of the affected local files, including rules and
 1. Confirm the setting's path and type from official documentation, the installed app's settings registry, or a one-setting before/after comparison.
 2. Add it to `configSpecs` or `globalSpecs`. Profile values use `configSpecs` automatically. For shortcuts, add only a verified command ID.
 3. Add fixtures covering the setting and sensitive decoy values.
-4. Test export filtering, audit, dry-run, apply, and rollback, then run `codex-sync audit` on the source Mac.
+4. Test export filtering, audit, dry-run, apply, and rollback, then run `codex-sync audit` on the source host.
 
 Do not extend an allowlist based only on a plausible key name.
 
@@ -133,7 +156,7 @@ Do not extend an allowlist based only on a plausible key name.
 ```sh
 go test ./...
 make                 # current platform
-make prod            # macOS binaries
+make prod            # macOS and Linux, amd64 and arm64 binaries
 ```
 
 Tests use fixtures and temporary directories; they do not touch live Codex settings.
