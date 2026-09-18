@@ -26,7 +26,7 @@ func preferencesForTarget(proposed, current Preferences, source, target string) 
 		result := make(map[string]Entry, len(configSpecs))
 		for _, spec := range configSpecs {
 			entry := incoming[spec.Path]
-			if preservePlatformSetting(spec.Path, source, target) {
+			if entry.Preserve || preservePlatformSetting(spec.Path, source, target) {
 				entry = local[spec.Path]
 			}
 			result[spec.Path] = entry

@@ -85,8 +85,9 @@ type AppInfo struct {
 }
 
 type Entry struct {
-	Present bool `json:"present"`
-	Value   any  `json:"value,omitempty"`
+	Present  bool `json:"present"`
+	Value    any  `json:"value,omitempty"`
+	Preserve bool `json:"preserve,omitempty"`
 }
 
 func (entry *Entry) UnmarshalJSON(data []byte) error {
@@ -100,6 +101,14 @@ func (entry *Entry) UnmarshalJSON(data []byte) error {
 	}
 	if err := json.Unmarshal(presentData, &entry.Present); err != nil {
 		return fmt.Errorf("preference entry has an invalid presence marker")
+	}
+	entry.Preserve = false
+	entry.Value = nil
+	if preserveData, ok := raw["preserve"]; ok {
+		if err := json.Unmarshal(preserveData, &entry.Preserve); err != nil || !entry.Preserve || entry.Present || len(raw) != 2 {
+			return fmt.Errorf("preserved preference entry must contain only present=false and preserve=true")
+		}
+		return nil
 	}
 	valueData, hasValue := raw["value"]
 	if entry.Present {

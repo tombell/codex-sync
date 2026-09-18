@@ -76,6 +76,12 @@ func validateEntryMap(entries map[string]Entry, specs []settingSpec, label strin
 		return fmt.Errorf("%s preference allowlist mismatch (unknown=%v missing=%v)", label, unknown, missing)
 	}
 	for path, entry := range entries {
+		if entry.Preserve {
+			if path != "desktop.selected-avatar-id" || entry.Present || entry.Value != nil {
+				return fmt.Errorf("%s has an invalid preservation marker", path)
+			}
+			continue
+		}
 		if entry.Present {
 			if entry.Value == nil {
 				return fmt.Errorf("%s is missing its value", path)

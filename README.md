@@ -113,7 +113,7 @@ Settings are collected from these files under `$CODEX_HOME` (default `~/.codex`)
 
 Unrelated values in the config, profile, and global-state files are left alone. Missing allowlisted values are also synced, so a target override can be reset to the application default. Rules are synced exactly: target-only `.rules` files are removed, while unrelated files in the rules directory are untouched.
 
-Dock icon preference is limited to the app's canonical icon modes. Selected avatar IDs are limited to built-in companions; downloaded or custom avatar assets are never included.
+Dock icon preference is limited to the app's canonical icon modes. Selected avatar IDs are limited to built-in companions; downloaded or custom avatar assets are never included. When the source selects a custom avatar, that preference is skipped and the target's avatar is preserved, including in named profiles.
 
 Auth, chats, sessions, history, projects, device state, browser data, permission profiles, skills, and downloaded assets are not synced.
 
@@ -123,7 +123,7 @@ Mac-to-Linux and Linux-to-Mac pulls preserve the target's custom keybindings, th
 
 When either host is Linux, menu-bar visibility, Dock icon preference, and font smoothing remain unchanged on the target. This also applies to named profiles, including profiles absent on the source. Shared settings retain the usual reset-to-default behavior.
 
-Linux desktop version and build come from `package.json` in `resources/app.asar`. Both must match the target, including for cross-platform pulls. This release uses export schema 4; update codex-sync on both hosts before syncing.
+Linux desktop version and build come from `package.json` in `resources/app.asar`. Both must match the target, including for cross-platform pulls. This release uses export schema 5; update codex-sync on both hosts before syncing.
 
 The verified Linux layout and storage details are in [Linux host investigation](docs/linux-hosts.md).
 

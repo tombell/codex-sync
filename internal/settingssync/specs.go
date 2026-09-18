@@ -3,7 +3,7 @@ package settingssync
 import "regexp"
 
 const (
-	BundleSchemaVersion = 4
+	BundleSchemaVersion = 5
 	ExpectedBundleID    = "com.openai.codex"
 	BundleSourceRole    = "source"
 	MaxBundleBytes      = 1024 * 1024

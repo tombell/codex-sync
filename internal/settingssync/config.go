@@ -86,6 +86,9 @@ func encodeTOMLScalar(value any) (string, error) {
 	}
 }
 
+// customAvatar marks an excluded ID without retaining or exporting its value.
+type customAvatar struct{}
+
 func scanConfig(text string) (map[string]any, []string, int, error) {
 	values := make(map[string]any)
 	unknown := make(map[string]struct{})
@@ -119,6 +122,11 @@ func scanConfig(text string) (map[string]any, []string, int, error) {
 				return nil, nil, 0, err
 			}
 			if err := validateValue(spec, value); err != nil {
+				if _, isString := value.(string); path == "desktop.selected-avatar-id" && isString {
+					values[path] = customAvatar{}
+					excluded++
+					continue
+				}
 				return nil, nil, 0, err
 			}
 			values[path] = value
@@ -140,7 +148,11 @@ func preferenceEntries(specs []settingSpec, values map[string]any) map[string]En
 	result := make(map[string]Entry, len(specs))
 	for _, spec := range specs {
 		value, present := values[spec.Path]
-		result[spec.Path] = Entry{Present: present, Value: value}
+		if _, custom := value.(customAvatar); custom {
+			result[spec.Path] = Entry{Preserve: true}
+		} else {
+			result[spec.Path] = Entry{Present: present, Value: value}
+		}
 	}
 	return result
 }
@@ -206,6 +218,10 @@ func renderConfig(original string, entries map[string]Entry) ([]byte, error) {
 		}
 		seen[path] = struct{}{}
 		entry := entries[path]
+		if entry.Preserve {
+			output.WriteString(line)
+			continue
+		}
 		if entry.Present {
 			encoded, err := encodeTOMLScalar(entry.Value)
 			if err != nil {
